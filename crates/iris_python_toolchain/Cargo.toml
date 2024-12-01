@@ -1,0 +1,23 @@
+[package]
+name = "iris_python_toolchain"
+edition = "2024"
+authors.workspace = true
+categories.workspace = true
+version.workspace = true
+
+[dependencies]
+
+[dependencies.ruff_python_codegen]
+git = "https://github.com/astral-sh/ruff.git"
+package = "ruff_python_codegen"
+rev = "84748be16341b76e073d117329f7f5f4ee2941ad"
+
+[dependencies.ruff_python_ast]
+git = "https://github.com/astral-sh/ruff.git"
+package = "ruff_python_ast"
+rev = "84748be16341b76e073d117329f7f5f4ee2941ad"
+
+[dependencies.ruff_python_parser]
+git = "https://github.com/astral-sh/ruff.git"
+package = "ruff_python_parser"
+rev = "84748be16341b76e073d117329f7f5f4ee2941ad"

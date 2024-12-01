@@ -1,0 +1,9 @@
+[package]
+name = "iris_python_ir"
+edition = "2024"
+authors.workspace = true
+categories.workspace = true
+version.workspace = true
+
+[dependencies]
+iris_python_toolchain = { workspace = true }

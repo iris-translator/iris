@@ -1,0 +1,9 @@
+[package]
+name = "iris_low_level_ir"
+edition = "2024"
+authors.workspace = true
+categories.workspace = true
+version.workspace = true
+
+[dependencies]
+serde = { workspace = true }
