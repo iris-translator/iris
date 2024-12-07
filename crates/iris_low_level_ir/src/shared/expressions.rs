@@ -7,7 +7,6 @@ use crate::shared::span::Span;
 pub struct UnaryExpression<'a> {
     pub span: Span,
     pub operator: UnaryOperator,
-    // TODO
     pub argument: Expression<'a>,
 }
 
