@@ -1,0 +1,9 @@
+[project]
+name = "iris"
+version = "0.1.0"
+description = "A universal code translator"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { file = "LICENSE" }
+keywords = ["code-translator", "universal", "ast"]
+dependencies = []

@@ -12,6 +12,8 @@ edition = "2024"
 [workspace.dependencies]
 oxc = { version = "0.39.0", features = ["full"] }
 oxc_resolver = "2.1.1"
+oxc_traverse = "0.39.0"
+oxc_ecmascript = "0.39.0"
 # Ruff does not appear in crates.io, but we need to use it for parse/codegen
 serde = "1.0.215"
 tokio = { version = "1.41.1", features = ["full"] }
@@ -23,3 +25,4 @@ compact_str = "0.8.0"
 
 iris_python = { path = "crates/iris_python" }
 iris_ecma = { path = "crates/iris_ecma" }
+iris_low_level_ir = { path = "crates/iris_low_level_ir" }

@@ -295,14 +295,18 @@ version = "0.1.0"
 name = "iris_ecma"
 version = "0.1.0"
 dependencies = [
+ "iris_low_level_ir",
  "oxc",
+ "oxc_ecmascript",
  "oxc_resolver",
+ "oxc_traverse",
 ]
 
 [[package]]
 name = "iris_low_level_ir"
 version = "0.1.0"
 dependencies = [
+ "oxc",
  "serde",
 ]
 

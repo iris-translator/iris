@@ -1,4 +1,4 @@
-use crate::shared::atom::Atom;
+use crate::shared::expressions::Expression;
 use super::span::Span;
 
 #[derive(Debug, Clone)]
@@ -8,9 +8,9 @@ pub struct BooleanLiteral {
 }
 
 #[derive(Debug, Clone)]
-pub struct NumericLiteral<'a> {
+pub struct NumericLiteral {
     pub value: f64,
-    pub raw: Atom<'a>,
+    pub raw: String,
     pub span: Span,
     pub base: NumberBase,
 }
@@ -31,8 +31,8 @@ pub enum NumberBase {
 }
 
 #[derive(Debug, Clone)]
-pub struct StringLiteral<'a> {
-    pub value: Atom<'a>,
+pub struct StringLiteral {
+    pub value: String,
     pub prefix: StringLiteralPrefix,
     pub span: Span,
 }
@@ -52,10 +52,14 @@ pub enum FStringPrefix {
 
 /// A template literal, e.g. `foo` or `foo${bar}baz`, or in Python, f-string, e.g. `f"{bar}"`
 #[derive(Debug, Clone)]
-pub struct TemplateLiteral<'a> {
-    pub quasis: Vec<Atom<'a>>,
-    // TODO
-    pub expressions: Vec<String>,
+pub struct TemplateLiteral {
+    pub quasis: Vec<String>,
+    pub expressions: Vec<Expression>,
     pub span: Span,
     pub prefix: FStringPrefix,
+}
+
+#[derive(Debug, Clone)]
+pub struct NullLiteral {
+    pub span: Span,
 }
