@@ -27,7 +27,9 @@ pub enum Expression {
     AssignmentExpression(Box<AssignmentExpression>),
     UpdateExpression(Box<UpdateExpression>),
     CallExpression(Box<CallExpression>),
+    ChainExpression(Box<ChainExpression>),
     LambdaExpression(Box<LambdaExpression>),
+    ParenthesizedExpression(Box<ParenthesizedExpression>),
 
     StaticMemberExpression(Box<StaticMemberExpression>),
     ComputedMemberExpression(Box<ComputedMemberExpression>),
@@ -55,6 +57,20 @@ pub enum UnaryOperator {
     Typeof,
     Void,
     Delete,
+}
+
+impl From<oxc::ast::ast::UnaryOperator> for UnaryOperator {
+    fn from(value: oxc::ast::ast::UnaryOperator) -> Self {
+        match value {
+            oxc::ast::ast::UnaryOperator::UnaryPlus => UnaryOperator::UnaryPlus,
+            oxc::ast::ast::UnaryOperator::UnaryNegation => UnaryOperator::UnaryNegation,
+            oxc::ast::ast::UnaryOperator::LogicalNot => UnaryOperator::LogicalNot,
+            oxc::ast::ast::UnaryOperator::BitwiseNot => UnaryOperator::BitwiseNot,
+            oxc::ast::ast::UnaryOperator::Typeof => UnaryOperator::Typeof,
+            oxc::ast::ast::UnaryOperator::Void => UnaryOperator::Void,
+            oxc::ast::ast::UnaryOperator::Delete => UnaryOperator::Delete,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -107,6 +123,38 @@ pub enum BinaryOperator {
     Instanceof,
 }
 
+impl From<oxc::ast::ast::BinaryOperator> for BinaryOperator {
+    fn from(value: oxc::ast::ast::BinaryOperator) -> Self {
+        match value {
+            oxc::ast::ast::BinaryOperator::Addition => BinaryOperator::Addition,
+            oxc::ast::ast::BinaryOperator::Subtraction => BinaryOperator::Subtraction,
+            oxc::ast::ast::BinaryOperator::Multiplication => BinaryOperator::Multiplication,
+            oxc::ast::ast::BinaryOperator::Division => BinaryOperator::Division,
+            oxc::ast::ast::BinaryOperator::Remainder => BinaryOperator::Remainder,
+            oxc::ast::ast::BinaryOperator::Exponential => BinaryOperator::Exponential,
+
+            oxc::ast::ast::BinaryOperator::ShiftLeft => BinaryOperator::ShiftLeft,
+            oxc::ast::ast::BinaryOperator::ShiftRight => BinaryOperator::ShiftRight,
+            oxc::ast::ast::BinaryOperator::ShiftRightZeroFill => BinaryOperator::ShiftRightZeroFill,
+            oxc::ast::ast::BinaryOperator::BitwiseOR => BinaryOperator::BitwiseOR,
+            oxc::ast::ast::BinaryOperator::BitwiseXOR => BinaryOperator::BitwiseXOR,
+            oxc::ast::ast::BinaryOperator::BitwiseAnd => BinaryOperator::BitwiseAnd,
+
+            oxc::ast::ast::BinaryOperator::Equality => BinaryOperator::Equality,
+            oxc::ast::ast::BinaryOperator::Inequality => BinaryOperator::Inequality,
+            oxc::ast::ast::BinaryOperator::StrictEquality => BinaryOperator::StrictEquality,
+            oxc::ast::ast::BinaryOperator::StrictInequality => BinaryOperator::StrictInequality,
+            oxc::ast::ast::BinaryOperator::LessThan => BinaryOperator::LessThan,
+            oxc::ast::ast::BinaryOperator::LessEqualThan => BinaryOperator::LessEqualThan,
+            oxc::ast::ast::BinaryOperator::GreaterThan => BinaryOperator::GreaterThan,
+            oxc::ast::ast::BinaryOperator::GreaterEqualThan => BinaryOperator::GreaterEqualThan,
+
+            oxc::ast::ast::BinaryOperator::In => BinaryOperator::In,
+            oxc::ast::ast::BinaryOperator::Instanceof => BinaryOperator::Instanceof,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct LogicalExpression {
     pub span: Span,
@@ -133,6 +181,12 @@ pub struct ConditionalExpression {
 }
 
 #[derive(Debug, Clone)]
+pub struct ParenthesizedExpression {
+    pub span: Span,
+    pub expression: Expression,
+}
+
+#[derive(Debug, Clone)]
 pub struct AssignmentExpression {
     pub span: Span,
     // For operator, we can simply transform the assignment with other operators into a simple assignment with the operator
@@ -144,15 +198,10 @@ pub struct AssignmentExpression {
 #[derive(Debug, Clone)]
 pub struct UpdateExpression {
     pub span: Span,
-    pub operator: UpdateOperator,
+    // Otherwise it's a decrement
+    pub increment: bool,
     pub target: Expression,
     pub prefix: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum UpdateOperator {
-    Increment = 0,
-    Decrement = 1,
 }
 
 #[derive(Debug, Clone)]
@@ -164,6 +213,12 @@ pub struct CallExpression {
     // JS-like, `new`
     pub new: bool,
     pub optional: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct ChainExpression {
+    pub span: Span,
+    pub expression: Expression,
 }
 
 #[derive(Debug, Clone)]
@@ -190,6 +245,7 @@ pub struct ComputedMemberExpression {
 pub struct Identifier {
     pub span: Span,
     pub name: String,
+    pub symbol_id: Option<usize>,
 }
 
 #[derive(Debug, Clone)]

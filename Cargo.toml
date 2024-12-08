@@ -14,7 +14,10 @@ oxc = { version = "0.39.0", features = ["full"] }
 oxc_resolver = "2.1.1"
 oxc_traverse = "0.39.0"
 oxc_ecmascript = "0.39.0"
+oxc_index = "1.0.1"
 # Ruff does not appear in crates.io, but we need to use it for parse/codegen
+anyhow = "1.0.94"
+nonmax = "0.5.5"
 serde = "1.0.215"
 tokio = { version = "1.41.1", features = ["full"] }
 serde_json = "1.0.133"

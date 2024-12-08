@@ -8,3 +8,4 @@ version.workspace = true
 [dependencies]
 serde = { workspace = true }
 oxc = { workspace = true }
+nonmax = { workspace = true }

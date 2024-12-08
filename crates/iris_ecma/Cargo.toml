@@ -10,5 +10,8 @@ oxc = { workspace = true, features = ["full"] }
 oxc_resolver = { workspace = true }
 oxc_traverse = { workspace = true }
 oxc_ecmascript = { workspace = true }
+oxc_index = { workspace = true }
+nonmax = { workspace = true }
+anyhow = { workspace = true }
 
 iris_low_level_ir = { workspace = true }
