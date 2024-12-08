@@ -309,6 +309,7 @@ dependencies = [
  "oxc_index",
  "oxc_resolver",
  "oxc_traverse",
+ "serde_json",
 ]
 
 [[package]]

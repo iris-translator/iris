@@ -1,3 +1,5 @@
+use crate::shared::assignment::AssignmentTarget;
+use crate::shared::{BindingPattern, BindingRestElement};
 use crate::shared::derivatives::Directive;
 use crate::shared::expressions::{Expression, Identifier};
 use crate::shared::span::Span;
@@ -5,9 +7,9 @@ use crate::shared::statements::{BlockStatement, Statement};
 
 #[derive(Debug, Clone)]
 pub enum Declaration {
-    VariableDeclaration(VariableDeclaration),
-    FunctionDeclaration(FunctionDeclaration),
-    ClassDeclaration(ClassDeclaration),
+    VariableDeclaration(Box<VariableDeclaration>),
+    FunctionDeclaration(Box<FunctionDeclaration>),
+    ClassDeclaration(Box<ClassDeclaration>),
 }
 
 #[derive(Debug, Clone)]
@@ -20,7 +22,7 @@ pub struct VariableDeclaration {
 #[derive(Debug, Clone)]
 pub struct VariableDeclarator {
     pub span: Span,
-    pub id: Expression,
+    pub id: BindingPattern,
     pub init: Option<Expression>,
 }
 
@@ -31,14 +33,29 @@ pub enum VariableDeclarationKind {
     Let,
     Using,
     AwaitUsing,
+
+    /// Python does not have these kinds of declarations. So we can handle it as `ambiguous` for now, despite that it is similar to `var` in JavaScript.
+    Ambiguous
+}
+
+impl From<oxc::ast::ast::VariableDeclarationKind> for VariableDeclarationKind {
+    fn from(kind: oxc::ast::ast::VariableDeclarationKind) -> Self {
+        match kind {
+            oxc::ast::ast::VariableDeclarationKind::Var => Self::Var,
+            oxc::ast::ast::VariableDeclarationKind::Const => Self::Const,
+            oxc::ast::ast::VariableDeclarationKind::Let => Self::Let,
+            oxc::ast::ast::VariableDeclarationKind::Using => Self::Using,
+            oxc::ast::ast::VariableDeclarationKind::AwaitUsing => Self::AwaitUsing,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct FunctionDeclaration {
     pub span: Span,
-    pub id: Identifier,
-    pub params: Vec<FormalParameter>,
-    pub body: FunctionBody,
+    pub id: Option<Identifier>,
+    pub params: FormalParameters,
+    pub body: Option<FunctionBody>,
     pub r#async: bool,
     pub generator: bool,
     pub decorators: Vec<Decorator>
@@ -47,8 +64,35 @@ pub struct FunctionDeclaration {
 #[derive(Debug, Clone)]
 pub struct FormalParameter {
     pub span: Span,
-    pub id: Expression,
-    pub init: Option<Expression>,
+    pub id: BindingPattern,
+    pub decorators: Vec<Decorator>
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Copy)]
+pub enum FormalParameterKind {
+    FormalParameter,
+    UniqueFormalParameters,
+    ArrowFormalParameters,
+    Signature,
+}
+
+impl From<oxc::ast::ast::FormalParameterKind> for FormalParameterKind {
+    fn from(kind: oxc::ast::ast::FormalParameterKind) -> Self {
+        match kind {
+            oxc::ast::ast::FormalParameterKind::FormalParameter => Self::FormalParameter,
+            oxc::ast::ast::FormalParameterKind::UniqueFormalParameters => Self::UniqueFormalParameters,
+            oxc::ast::ast::FormalParameterKind::ArrowFormalParameters => Self::ArrowFormalParameters,
+            oxc::ast::ast::FormalParameterKind::Signature => Self::Signature,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FormalParameters {
+    pub span: Span,
+    pub kind: FormalParameterKind,
+    pub items: Vec<FormalParameter>,
+    pub rest: Option<BindingRestElement>,
 }
 
 #[derive(Debug, Clone)]

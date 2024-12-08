@@ -3,6 +3,7 @@
 use crate::shared::declarations::FunctionBody;
 use crate::shared::literals::*;
 use crate::shared::span::Span;
+use crate::shared::{AssignmentPattern, AssignmentTarget, VariableDeclaration};
 
 #[derive(Debug, Clone)]
 pub enum Expression {
@@ -20,6 +21,8 @@ pub enum Expression {
 
     Identifier(Identifier),
 
+    AwaitExpression(Box<AwaitExpression>),
+    YieldExpression(Box<YieldExpression>),
     UnaryExpression(Box<UnaryExpression>),
     BinaryExpression(Box<BinaryExpression>),
     LogicalExpression(Box<LogicalExpression>),
@@ -31,13 +34,14 @@ pub enum Expression {
     LambdaExpression(Box<LambdaExpression>),
     ParenthesizedExpression(Box<ParenthesizedExpression>),
 
-    StaticMemberExpression(Box<StaticMemberExpression>),
-    ComputedMemberExpression(Box<ComputedMemberExpression>),
+    MemberExpression(Box<MemberExpression>),
 
     // Specific, for ease of use
     SpreadElement(Box<SpreadElement>),
     Elision(Elision),
     ObjectProperty(Box<ObjectProperty>),
+    VariableDeclaration(Box<VariableDeclaration>),
+    AssignmentTarget(Box<AssignmentTarget>),
 }
 
 
@@ -190,7 +194,7 @@ pub struct ParenthesizedExpression {
 pub struct AssignmentExpression {
     pub span: Span,
     // For operator, we can simply transform the assignment with other operators into a simple assignment with the operator
-    pub target: Expression,
+    pub target: AssignmentTarget,
     pub value: Expression,
 }
 
@@ -200,7 +204,7 @@ pub struct UpdateExpression {
     pub span: Span,
     // Otherwise it's a decrement
     pub increment: bool,
-    pub target: Expression,
+    pub target: AssignmentTarget,
     pub prefix: bool,
 }
 
@@ -228,17 +232,12 @@ pub struct SpreadElement {
 }
 
 #[derive(Debug, Clone)]
-pub struct StaticMemberExpression {
-    pub span: Span,
-    pub object: Expression,
-    pub property: Identifier,
-}
-
-#[derive(Debug, Clone)]
-pub struct ComputedMemberExpression {
+pub struct MemberExpression {
     pub span: Span,
     pub object: Expression,
     pub property: Expression,
+    pub computed: bool,
+    pub private: bool
 }
 
 #[derive(Debug, Clone)]
@@ -246,6 +245,7 @@ pub struct Identifier {
     pub span: Span,
     pub name: String,
     pub symbol_id: Option<usize>,
+    pub private: bool
 }
 
 #[derive(Debug, Clone)]
@@ -294,6 +294,16 @@ pub enum PropertyKind {
     Init = 0,
     Get = 1,
     Set = 2,
+}
+
+impl From<oxc::ast::ast::PropertyKind> for PropertyKind {
+    fn from(value: oxc::ast::ast::PropertyKind) -> Self {
+        match value {
+            oxc::ast::ast::PropertyKind::Init => PropertyKind::Init,
+            oxc::ast::ast::PropertyKind::Get => PropertyKind::Get,
+            oxc::ast::ast::PropertyKind::Set => PropertyKind::Set,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

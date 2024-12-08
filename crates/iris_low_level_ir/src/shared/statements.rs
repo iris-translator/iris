@@ -7,7 +7,7 @@ use crate::shared::span::Span;
 #[derive(Debug, Clone)]
 pub enum Statement {
     BlockStatement(Box<BlockStatement>),
-    BreakStatement(BreakStatement),
+    BreakStatement(Box<BreakStatement>),
     ContinueStatement(ContinueStatement),
     DebuggerStatement(DebuggerStatement),
     Declaration(Box<Declaration>),
@@ -74,7 +74,8 @@ pub struct ForStatement {
 
     // JavaScript-specific: we merge `ForOf` and `ForIn`, since we don't have to care about the iteration type.
     // If it is for-of, the `iteration` field will be true.
-    pub iteration: bool
+    pub iteration: bool,
+    pub r#await: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -86,16 +87,16 @@ pub struct ThrowStatement {
 #[derive(Debug, Clone)]
 pub struct TryStatement {
     pub span: Span,
-    pub block: Box<BlockStatement>,
+    pub block: BlockStatement,
     pub handler: Option<CatchClause>,
-    pub finalizer: Option<Box<BlockStatement>>,
+    pub finalizer: Option<BlockStatement>,
 }
 
 #[derive(Debug, Clone)]
 pub struct CatchClause {
     pub span: Span,
     pub param: Expression,
-    pub body: Box<BlockStatement>,
+    pub body: BlockStatement,
 }
 
 #[derive(Debug, Clone)]
