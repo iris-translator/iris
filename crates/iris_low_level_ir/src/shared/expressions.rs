@@ -3,7 +3,7 @@
 use crate::shared::declarations::FunctionBody;
 use crate::shared::literals::*;
 use crate::shared::span::Span;
-use crate::shared::{AssignmentPattern, AssignmentTarget, VariableDeclaration};
+use crate::shared::{AssignmentTarget, FormalParameters, Function, VariableDeclaration};
 
 #[derive(Debug, Clone)]
 pub enum Expression {
@@ -26,6 +26,7 @@ pub enum Expression {
     UnaryExpression(Box<UnaryExpression>),
     BinaryExpression(Box<BinaryExpression>),
     LogicalExpression(Box<LogicalExpression>),
+    FunctionExpression(Box<Function>),
     ConditionalExpression(Box<ConditionalExpression>),
     AssignmentExpression(Box<AssignmentExpression>),
     UpdateExpression(Box<UpdateExpression>),
@@ -322,7 +323,7 @@ pub struct YieldExpression {
 #[derive(Debug, Clone)]
 pub struct LambdaExpression {
     pub span: Span,
-    pub params: Vec<Expression>,
+    pub params: FormalParameters,
     pub body: FunctionBody,
     pub r#async: bool,
     // Like `lambda x: x`, or `(x) => x` no explicit return

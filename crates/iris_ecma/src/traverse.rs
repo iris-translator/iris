@@ -3,7 +3,6 @@ use crate::toolchain::traverse::{Traverse, TraverseCtx};
 use crate::toolchain::index::Idx;
 use iris_low_level_ir::shared::*;
 use oxc::ast::{match_assignment_target, match_declaration, match_expression, match_member_expression};
-use oxc::cfg::graph::matrix_graph::Nullable;
 use oxc::semantic::{ScopeTree, SymbolTable};
 use oxc::span::GetSpan;
 use oxc_traverse::traverse_mut;
@@ -39,17 +38,18 @@ impl<'a> IrisTraverseToIR {
             OxcExpression::NullLiteral(it) => Expression::NullLiteral(Self::trans_null_literal(it)),
             OxcExpression::NumericLiteral(it) => Expression::NumericLiteral(Self::trans_numeric_literal(it)),
             OxcExpression::BigIntLiteral(it) => Expression::NumericLiteral(Self::trans_bigint_literal(it)),
-            OxcExpression::RegExpLiteral(it) => unimplemented!("RegExpLiteral"),
+            OxcExpression::RegExpLiteral(_it) => unimplemented!("RegExpLiteral"),
             OxcExpression::StringLiteral(it) => Expression::StringLiteral(Self::trans_string_literal(it)),
             OxcExpression::TemplateLiteral(it) => Expression::TemplateLiteral(Box::new(self.trans_template_literal(it, ctx))),
             OxcExpression::ArrayExpression(it) => Expression::ArrayExpression(Box::new(self.trans_array_expression(it, ctx))),
-            OxcExpression::ArrowFunctionExpression(it) => unimplemented!("ArrowFunctionExpression"),
+            OxcExpression::ArrowFunctionExpression(it) => Expression::LambdaExpression(Box::new(self.trans_arrow_function_expression(it, ctx))),
             OxcExpression::AssignmentExpression(it) => Expression::AssignmentExpression(Box::new(self.trans_assignment_expression(it, ctx).unwrap())),
             OxcExpression::AwaitExpression(it) => Expression::AwaitExpression(Box::new(self.trans_await_expression(it, ctx))),
             OxcExpression::BinaryExpression(it) => Expression::BinaryExpression(Box::new(self.trans_binary_expression(it, ctx))),
             OxcExpression::CallExpression(it) => Expression::CallExpression(Box::new(self.trans_call_expression(it, ctx))),
-            OxcExpression::ChainExpression(it) => Expression::ChainExpression(Box::new(self.trans_chain_expression(it))),
+            OxcExpression::ChainExpression(it) => Expression::ChainExpression(Box::new(self.trans_chain_expression(it, ctx))),
             OxcExpression::ConditionalExpression(it) => Expression::ConditionalExpression(Box::new(self.trans_conditional_expression(it, ctx))),
+            OxcExpression::FunctionExpression(it) => Expression::FunctionExpression(Box::new(self.trans_function_expression(it, ctx))),
             OxcExpression::LogicalExpression(it) => Expression::LogicalExpression(Box::new(self.trans_logical_expression(it, ctx))),
             OxcExpression::SequenceExpression(it) => Expression::SequenceExpression(Box::new(self.trans_sequence_expression(it, ctx))),
             OxcExpression::UnaryExpression(it) => Expression::UnaryExpression(Box::new(self.trans_unary_expression(it, ctx))),
@@ -101,9 +101,9 @@ impl<'a> IrisTraverseToIR {
         }
     }
 
-    pub fn trans_regexp_literal(it: &oxc::ast::ast::RegExpLiteral) -> ! {
-        unimplemented!()
-    }
+    // pub fn trans_regexp_literal(_it: &oxc::ast::ast::RegExpLiteral) -> ! {
+    //     unimplemented!()
+    // }
 
     pub fn trans_string_literal(it: &oxc::ast::ast::StringLiteral) -> StringLiteral {
         StringLiteral {
@@ -167,14 +167,33 @@ impl<'a> IrisTraverseToIR {
                 ArrayExpressionElement::Elision(it) => Expression::Elision(Elision {
                     span: it.span.into(),
                 }),
-                ArrayExpressionElement::SpreadElement(it) => unimplemented!(),
-                expr @ match_expression!(ArrayExpressionElement) => self.trans_expression(&expr.as_expression().unwrap(), ctx)
+                ArrayExpressionElement::SpreadElement(it) => Expression::SpreadElement(Box::new(self.trans_spread_element(it, ctx))),
+                expr @ match_expression!(ArrayExpressionElement) => self.trans_expression(expr.as_expression().unwrap(), ctx)
             }).collect::<Vec<_>>(),
         }
     }
 
-    pub fn trans_arrow_function_expression(it: &oxc::ast::ast::ArrowFunctionExpression) -> LambdaExpression {
-        todo!()
+    pub fn trans_arrow_function_expression(&mut self, it: &oxc::ast::ast::ArrowFunctionExpression, ctx: &mut TraverseCtx<'a>) -> LambdaExpression {
+        LambdaExpression {
+            span: it.span.into(),
+            params: self.trans_formal_parameters(&it.params, ctx),
+            body: self.trans_function_body(&it.body, ctx),
+            r#async: it.r#async,
+            expression: it.expression,
+        }
+    }
+
+    pub fn trans_function_expression(&mut self, it: &oxc::ast::ast::Function, ctx: &mut TraverseCtx<'a>) -> Function {
+        Function {
+            span: it.span.into(),
+            r#type: FunctionType::FunctionExpression,
+            params: self.trans_formal_parameters(&it.params, ctx),
+            body: it.body.as_ref().map(|x| self.trans_function_body(x, ctx)),
+            r#async: it.r#async,
+            generator: it.generator,
+            decorators: vec![],
+            id: it.id.as_ref().map(|x| Self::trans_binding_identifier(x)),
+        }
     }
 
     pub fn trans_directive(it: &oxc::ast::ast::Directive) -> Directive {
@@ -193,9 +212,10 @@ impl<'a> IrisTraverseToIR {
         }
     }
 
-    pub fn trans_function_declaration(&mut self, it: &oxc::ast::ast::Function, ctx: &mut TraverseCtx<'a>) -> FunctionDeclaration {
-        FunctionDeclaration {
+    pub fn trans_function_declaration(&mut self, it: &oxc::ast::ast::Function, ctx: &mut TraverseCtx<'a>) -> Function {
+        Function {
             span: it.span.into(),
+            r#type: FunctionType::FunctionDeclaration,
             params: self.trans_formal_parameters(&it.params, ctx),
             body: it.body.as_ref().map(|x| self.trans_function_body(x, ctx)),
             r#async: it.r#async,
@@ -296,8 +316,20 @@ impl<'a> IrisTraverseToIR {
         }
     }
 
-    pub fn trans_chain_expression(&mut self, it: &oxc::ast::ast::ChainExpression) -> ChainExpression {
-        unimplemented!()
+    pub fn trans_chain_expression(&mut self, it: &oxc::ast::ast::ChainExpression, ctx: &mut TraverseCtx<'a>) -> ChainExpression {
+        ChainExpression {
+            span: it.span.into(),
+            expression: self.trans_chain_element(&it.expression, ctx),
+        }
+    }
+
+    pub fn trans_chain_element(&mut self, it: &oxc::ast::ast::ChainElement, ctx: &mut TraverseCtx<'a>) -> Expression {
+        use oxc::ast::ast::ChainElement;
+        match it {
+            ChainElement::CallExpression(it) => Expression::CallExpression(Box::new(self.trans_call_expression(it, ctx))),
+            member_expr @ match_member_expression!(ChainElement) => Expression::MemberExpression(Box::new(self.trans_member_expression(member_expr.as_member_expression().unwrap(), ctx))),
+            _ => unreachable!()
+        }
     }
 
     pub fn trans_conditional_expression(&mut self, it: &oxc::ast::ast::ConditionalExpression, ctx: &mut TraverseCtx<'a>) -> ConditionalExpression {
@@ -472,7 +504,7 @@ impl<'a> IrisTraverseToIR {
                     let expr = it.as_expression().unwrap();
                     Statement::ExpressionStatement(Box::new(ExpressionStatement {
                         span: expr.span().into(),
-                        expression: self.trans_expression(&expr, ctx),
+                        expression: self.trans_expression(expr, ctx),
                     }))
                 }
             }
@@ -512,15 +544,14 @@ impl<'a> IrisTraverseToIR {
             })),
             body: body.map(|x| Statement::BlockStatement(Box::new(x))).unwrap_or(self.trans_statement(&it.body, ctx)),
         };
-        let block = BlockStatement {
+        BlockStatement {
             span: it.span.into(),
             statements: if init.is_some() {
                 vec![init.unwrap(), Statement::WhileStatement(Box::new(new_while))]
             } else {
                 vec![Statement::WhileStatement(Box::new(new_while))]
             },
-        };
-        block
+        }
     }
 
     pub fn trans_while_statement(&mut self, it: &oxc::ast::ast::WhileStatement, ctx: &mut TraverseCtx<'a>) -> WhileStatement {
@@ -706,7 +737,7 @@ impl<'a> IrisTraverseToIR {
     pub fn trans_assignment_target_property_property(&mut self, it: &oxc::ast::ast::AssignmentTargetPropertyProperty, ctx: &mut TraverseCtx<'a>) -> AssignmentTargetPropertyProperty {
         AssignmentTargetPropertyProperty {
             span: it.span.into(),
-            name: self.trans_expression(&it.name.as_expression().unwrap(), ctx),
+            name: self.trans_expression(it.name.as_expression().unwrap(), ctx),
             binding: self.trans_assignment_target_maybe_default(&it.binding, ctx),
         }
     }

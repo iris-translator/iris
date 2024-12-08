@@ -1,4 +1,3 @@
-use crate::shared::assignment::AssignmentTarget;
 use crate::shared::{BindingPattern, BindingRestElement};
 use crate::shared::derivatives::Directive;
 use crate::shared::expressions::{Expression, Identifier};
@@ -8,7 +7,7 @@ use crate::shared::statements::{BlockStatement, Statement};
 #[derive(Debug, Clone)]
 pub enum Declaration {
     VariableDeclaration(Box<VariableDeclaration>),
-    FunctionDeclaration(Box<FunctionDeclaration>),
+    FunctionDeclaration(Box<Function>),
     ClassDeclaration(Box<ClassDeclaration>),
 }
 
@@ -51,14 +50,31 @@ impl From<oxc::ast::ast::VariableDeclarationKind> for VariableDeclarationKind {
 }
 
 #[derive(Debug, Clone)]
-pub struct FunctionDeclaration {
+pub struct Function {
     pub span: Span,
+    pub r#type: FunctionType,
     pub id: Option<Identifier>,
     pub params: FormalParameters,
     pub body: Option<FunctionBody>,
     pub r#async: bool,
     pub generator: bool,
     pub decorators: Vec<Decorator>
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FunctionType {
+    FunctionDeclaration,
+    FunctionExpression,
+}
+
+impl From<oxc::ast::ast::FunctionType> for FunctionType {
+    fn from(kind: oxc::ast::ast::FunctionType) -> Self {
+        match kind {
+            oxc::ast::ast::FunctionType::FunctionDeclaration => Self::FunctionDeclaration,
+            oxc::ast::ast::FunctionType::FunctionExpression => Self::FunctionExpression,
+            _ => unimplemented!()
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -141,7 +157,7 @@ pub struct MethodDefinition {
     pub span: Span,
     pub kind: MethodDefinitionKind,
     pub decorators: Vec<Decorator>,
-    pub value: FunctionDeclaration,
+    pub value: Function,
     pub computed: bool,
     pub r#static: bool,
 }

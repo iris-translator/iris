@@ -18,6 +18,7 @@ mod tests {
     #[test]
     fn test() {
         let code = r#"
+            'use strict';
             function foo() {
                 return 1;
                 if (true) {
@@ -29,6 +30,18 @@ mod tests {
                 for (let i = 0; i < 10; i++) {
                     return 4;
                 }
+                (function() {
+                    return 5;
+                })();
+                (() => {
+                    return 6;
+                })();
+                for (a in Object.keys({a: 1, b: 2})) {
+                    return 7;
+                }
+                using f = s ? (v ?? x) : y;
+                sdo.dsk2['s']?.ds.toString?.();
+                `hello ${world}`;
             }
         "#;
         let allocator = Allocator::default();
