@@ -53,7 +53,7 @@ impl<'a> EcmaGeneralization {
             OxcExpression::LogicalExpression(it) => Expression::LogicalExpression(Box::new(self.trans_logical_expression(it, ctx))),
             OxcExpression::SequenceExpression(it) => Expression::SequenceExpression(Box::new(self.trans_sequence_expression(it, ctx))),
             OxcExpression::UnaryExpression(it) => Expression::UnaryExpression(Box::new(self.trans_unary_expression(it, ctx))),
-            OxcExpression::UpdateExpression(it) => Expression::UpdateExpression(Box::new(self.trans_update_expression(it, ctx))),
+            OxcExpression::UpdateExpression(it) => Expression::AssignmentExpression(Box::new(self.trans_update_expression(it, ctx))),
             OxcExpression::YieldExpression(it) => Expression::YieldExpression(Box::new(self.trans_yield_expression(it, ctx))),
             OxcExpression::ObjectExpression(it) => Expression::ObjectExpression(Box::new(self.object_expression(it, ctx))),
             OxcExpression::Identifier(it) => Expression::Identifier(self.trans_identifier_reference(it, ctx)),
@@ -375,12 +375,47 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_update_expression(&mut self, it: &oxc::ast::ast::UpdateExpression, ctx: &mut TraverseCtx<'a>) -> UpdateExpression {
-        UpdateExpression {
+    pub fn trans_update_expression(&mut self, it: &oxc::ast::ast::UpdateExpression, ctx: &mut TraverseCtx<'a>) -> AssignmentExpression {
+        // UpdateExpression {
+        //     span: it.span.into(),
+        //     increment: matches!(it.operator, oxc::ast::ast::UpdateOperator::Increment),
+        //     target: self.trans_simple_assignment_target(&it.argument, ctx),
+        //     prefix: it.prefix,
+        // }
+        // We need to transform the update expression into a simple assignment expression.
+        let left = self.trans_simple_assignment_target_to_expression(&it.argument, ctx);
+        let right = Expression::NumericLiteral(NumericLiteral {
             span: it.span.into(),
-            increment: matches!(it.operator, oxc::ast::ast::UpdateOperator::Increment),
-            target: self.trans_simple_assignment_target(&it.argument, ctx),
-            prefix: it.prefix,
+            value: 1.0,
+            raw: "1".to_string(),
+            base: NumberBase::Decimal,
+        });
+        let bin = BinaryExpression {
+            span: it.span.into(),
+            left: if it.prefix {
+                left.clone()
+            } else {
+                right.clone()
+            },
+            operator: if matches!(it.operator, oxc::ast::ast::UpdateOperator::Increment) {
+                BinaryOperator::Addition
+            } else {
+                BinaryOperator::Subtraction
+            },
+            right: if it.prefix {
+                right.clone()
+            } else {
+                left.clone()
+            },
+        };
+        AssignmentExpression {
+            span: it.span.into(),
+            target: match left {
+                Expression::Identifier(id) => AssignmentTarget::AssignmentTargetIdentifier(id),
+                Expression::MemberExpression(mem) => AssignmentTarget::MemberExpression(mem),
+                _ => unreachable!()
+            },
+            value: Expression::BinaryExpression(Box::new(bin)),
         }
     }
 
@@ -446,7 +481,8 @@ impl<'a> EcmaGeneralization {
             OxcStatement::ForInStatement(it) => Statement::ForStatement(Box::new(self.trans_for_in_statement(it, ctx))),
             OxcStatement::ForOfStatement(it) => Statement::ForStatement(Box::new(self.trans_for_of_statement(it, ctx))),
             OxcStatement::ReturnStatement(it) => Statement::ReturnStatement(Box::new(self.trans_return_statement(it, ctx))),
-            decl @ match_declaration!(OxcStatement) => Statement::Declaration(Box::new(self.trans_declaration(decl.as_declaration().unwrap(), ctx))),
+            OxcStatement::VariableDeclaration(it) => Statement::VariableDeclaration(Box::new(self.trans_variable_declaration(it, ctx))),
+            OxcStatement::FunctionDeclaration(it) => Statement::FunctionDeclaration(Box::new(self.trans_function_declaration(it, ctx))),
             _ => unimplemented!(),
         }
     }
@@ -498,7 +534,7 @@ impl<'a> EcmaGeneralization {
         // First, we need to scope the init.
         let init = it.init.as_ref().map(|init| {
             match init {
-                ForStatementInit::VariableDeclaration(decl) => Statement::Declaration(Box::from(Declaration::VariableDeclaration(Box::from(self.trans_variable_declaration(decl, ctx))))),
+                ForStatementInit::VariableDeclaration(decl) => Statement::VariableDeclaration(Box::from(self.trans_variable_declaration(decl, ctx))),
                 it @ match_expression!(ForStatementInit) => {
                     let expr = it.as_expression().unwrap();
                     Statement::ExpressionStatement(Box::new(ExpressionStatement {
@@ -640,23 +676,32 @@ impl<'a> EcmaGeneralization {
         VariableDeclarator {
             span: it.span.into(),
             init: it.init.as_ref().map(|x| self.trans_expression(x, ctx)),
-            id: self.trans_binding_pattern(&it.id),
+            id: self.trans_binding_pattern(&it.id, ctx),
         }
     }
 
-    pub fn trans_binding_pattern(&mut self, it: &oxc::ast::ast::BindingPattern) -> BindingPattern {
+    pub fn trans_binding_pattern(&mut self, it: &oxc::ast::ast::BindingPattern, ctx: &mut TraverseCtx<'a>) -> BindingPattern {
         BindingPattern {
             kind: match &it.kind {
                 oxc::ast::ast::BindingPatternKind::BindingIdentifier(it) => BindingPatternKind::BindingIdentifier(Box::from(Self::trans_binding_identifier(it))),
+                oxc::ast::ast::BindingPatternKind::AssignmentPattern(it) => BindingPatternKind::AssignmentPattern(Box::from(self.trans_assignment_pattern(it, ctx))),
                 _ => unimplemented!("Destructuring is not generalized. Please wait Oxc implements its transformation to simple assignment.")
             }
         }
     }
 
-    pub fn trans_binding_rest_element(&mut self, it: &oxc::ast::ast::BindingRestElement) -> BindingRestElement {
+    pub fn trans_binding_rest_element(&mut self, it: &oxc::ast::ast::BindingRestElement, ctx: &mut TraverseCtx<'a>) -> BindingRestElement {
         BindingRestElement {
             span: it.span.into(),
-            argument: self.trans_binding_pattern(&it.argument),
+            argument: self.trans_binding_pattern(&it.argument, ctx),
+        }
+    }
+
+    pub fn trans_assignment_pattern(&mut self, it: &oxc::ast::ast::AssignmentPattern, ctx: &mut TraverseCtx<'a>) -> AssignmentPattern {
+        AssignmentPattern {
+            span: it.span.into(),
+            left: self.trans_binding_pattern(&it.left, ctx),
+            right: self.trans_expression(&it.right, ctx),
         }
     }
 
@@ -721,6 +766,16 @@ impl<'a> EcmaGeneralization {
             OxcAssignmentTarget::StaticMemberExpression(it) => AssignmentTarget::MemberExpression(Box::from(self.trans_static_member_expression(it, ctx))),
             OxcAssignmentTarget::PrivateFieldExpression(it) => AssignmentTarget::MemberExpression(Box::from(self.trans_private_field_expression(it, ctx))),
             _ => unreachable!(),
+        }
+    }
+
+    pub fn trans_simple_assignment_target_to_expression(&mut self, it: &oxc::ast::ast::SimpleAssignmentTarget, ctx: &mut TraverseCtx<'a>) -> Expression {
+        use oxc::ast::ast::{SimpleAssignmentTarget as OxcAssignmentTarget};
+        match it {
+            OxcAssignmentTarget::AssignmentTargetIdentifier(it) => Expression::Identifier(self.trans_identifier_reference(it, ctx)),
+            OxcAssignmentTarget::ComputedMemberExpression(it) => Expression::MemberExpression(Box::from(self.trans_computed_member_expression(it, ctx))),
+            OxcAssignmentTarget::StaticMemberExpression(it) => Expression::MemberExpression(Box::from(self.trans_static_member_expression(it, ctx))),
+            _ => unimplemented!()
         }
     }
 
@@ -824,7 +879,7 @@ impl<'a> EcmaGeneralization {
     pub fn trans_formal_parameter(&mut self, it: &oxc::ast::ast::FormalParameter, ctx: &mut TraverseCtx<'a>) -> FormalParameter {
         FormalParameter {
             span: it.span.into(),
-            id: self.trans_binding_pattern(&it.pattern),
+            id: self.trans_binding_pattern(&it.pattern, ctx),
             decorators: it.decorators.iter().map(|x| self.trans_decorator(x, ctx)).collect::<Vec<_>>(),
         }
     }
@@ -834,7 +889,7 @@ impl<'a> EcmaGeneralization {
             span: it.span.into(),
             kind: it.kind.into(),
             items: it.items.iter().map(|x| self.trans_formal_parameter(x, ctx)).collect::<Vec<_>>(),
-            rest: it.rest.as_ref().map(|x| self.trans_binding_rest_element(x)),
+            rest: it.rest.as_ref().map(|x| self.trans_binding_rest_element(x, ctx)),
         }
     }
 

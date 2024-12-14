@@ -313,6 +313,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "iris_integrated"
+version = "0.1.0"
+dependencies = [
+ "iris_ecma",
+ "iris_low_level_ir",
+ "iris_python",
+ "oxc",
+ "ruff",
+]
+
+[[package]]
 name = "iris_low_level_ir"
 version = "0.1.0"
 dependencies = [
@@ -324,6 +335,7 @@ dependencies = [
 name = "iris_python"
 version = "0.1.0"
 dependencies = [
+ "iris_low_level_ir",
  "ruff",
 ]
 
@@ -1094,6 +1106,7 @@ dependencies = [
  "ruff_python_semantic",
  "ruff_python_stdlib",
  "ruff_python_trivia",
+ "ruff_text_size",
 ]
 
 [[package]]

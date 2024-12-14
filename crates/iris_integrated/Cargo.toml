@@ -1,0 +1,13 @@
+[package]
+name = "iris_integrated"
+authors.workspace = true
+categories.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[dev-dependencies]
+iris_low_level_ir = { workspace = true }
+iris_ecma = { workspace = true }
+iris_python = { workspace = true }
+oxc = { workspace = true }
+ruff = { workspace = true }

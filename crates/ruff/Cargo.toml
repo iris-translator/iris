@@ -41,3 +41,8 @@ rev = "2c13e6513d471cb815941722b64a46a86ad03f82"
 git = "https://github.com/astral-sh/ruff.git"
 package = "ruff_python_parser"
 rev = "2c13e6513d471cb815941722b64a46a86ad03f82"
+
+[dependencies.ruff_text_size]
+git = "https://github.com/astral-sh/ruff.git"
+package = "ruff_text_size"
+rev = "2c13e6513d471cb815941722b64a46a86ad03f82"

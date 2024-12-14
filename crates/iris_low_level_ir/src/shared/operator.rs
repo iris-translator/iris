@@ -48,6 +48,20 @@ impl From<OxcUnaryOperator> for UnaryOperator {
     }
 }
 
+impl Into<OxcUnaryOperator> for UnaryOperator {
+    fn into(self) -> OxcUnaryOperator {
+        match self {
+            UnaryOperator::UnaryPlus => OxcUnaryOperator::UnaryPlus,
+            UnaryOperator::UnaryNegation => OxcUnaryOperator::UnaryNegation,
+            UnaryOperator::LogicalNot => OxcUnaryOperator::LogicalNot,
+            UnaryOperator::BitwiseNot => OxcUnaryOperator::BitwiseNot,
+            UnaryOperator::Typeof => OxcUnaryOperator::Typeof,
+            UnaryOperator::Void => OxcUnaryOperator::Void,
+            UnaryOperator::Delete => OxcUnaryOperator::Delete,
+        }
+    }
+}
+
 impl From<RuffUnaryOperator> for UnaryOperator {
     fn from(value: RuffUnaryOperator) -> Self {
         match value {
@@ -55,6 +69,18 @@ impl From<RuffUnaryOperator> for UnaryOperator {
             RuffUnaryOperator::USub => UnaryOperator::UnaryNegation,
             RuffUnaryOperator::Not => UnaryOperator::LogicalNot,
             RuffUnaryOperator::Invert => UnaryOperator::BitwiseNot,
+        }
+    }
+}
+
+impl Into<RuffUnaryOperator> for UnaryOperator {
+    fn into(self) -> RuffUnaryOperator {
+        match self {
+            UnaryOperator::UnaryPlus => RuffUnaryOperator::UAdd,
+            UnaryOperator::UnaryNegation => RuffUnaryOperator::USub,
+            UnaryOperator::LogicalNot => RuffUnaryOperator::Not,
+            UnaryOperator::BitwiseNot => RuffUnaryOperator::Invert,
+            _ => unimplemented!(),
         }
     }
 }
@@ -103,6 +129,109 @@ pub enum BinaryOperator {
 
     Is,
     IsNot,
+}
+
+impl Display for BinaryOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let op = match self {
+            BinaryOperator::Addition => "+",
+            BinaryOperator::Subtraction => "-",
+            BinaryOperator::Multiplication => "*",
+            BinaryOperator::MatMultiplication => "@",
+            BinaryOperator::Division => "/",
+            BinaryOperator::FloorDivision => "//",
+            BinaryOperator::Remainder => "%",
+            BinaryOperator::Exponential => "**",
+
+            BinaryOperator::ShiftLeft => "<<",
+            BinaryOperator::ShiftRight => ">>",
+            BinaryOperator::ShiftRightZeroFill => ">>>",
+            BinaryOperator::BitwiseOr => "|",
+            BinaryOperator::BitwiseXor => "^",
+            BinaryOperator::BitwiseAnd => "&",
+
+            BinaryOperator::Equality => "==",
+            BinaryOperator::Inequality => "!=",
+            BinaryOperator::StrictEquality => "===",
+            BinaryOperator::StrictInequality => "!==",
+            BinaryOperator::LessThan => "<",
+            BinaryOperator::LessEqualThan => "<=",
+            BinaryOperator::GreaterThan => ">",
+            BinaryOperator::GreaterEqualThan => ">=",
+
+            BinaryOperator::In => "in",
+            BinaryOperator::NotIn => "not in",
+            BinaryOperator::Instanceof => "instanceof",
+
+            BinaryOperator::Is => "is",
+            BinaryOperator::IsNot => "is not",
+        };
+        write!(f, "{}", op)
+    }
+}
+
+impl BinaryOperator {
+    #[must_use]
+    pub fn is_arithmetic(self) -> bool {
+        matches!(
+            self,
+            BinaryOperator::Addition
+                | BinaryOperator::Subtraction
+                | BinaryOperator::Multiplication
+                | BinaryOperator::MatMultiplication
+                | BinaryOperator::Division
+                | BinaryOperator::FloorDivision
+                | BinaryOperator::Remainder
+                | BinaryOperator::Exponential
+        )
+    }
+
+    #[must_use]
+    pub fn is_bitwise(self) -> bool {
+        matches!(
+            self,
+            BinaryOperator::ShiftLeft
+                | BinaryOperator::ShiftRight
+                | BinaryOperator::ShiftRightZeroFill
+                | BinaryOperator::BitwiseOr
+                | BinaryOperator::BitwiseXor
+                | BinaryOperator::BitwiseAnd
+        )
+    }
+
+    #[must_use]
+    pub fn is_comparison(self) -> bool {
+        matches!(
+            self,
+            BinaryOperator::Equality
+                | BinaryOperator::Inequality
+                | BinaryOperator::StrictEquality
+                | BinaryOperator::StrictInequality
+                | BinaryOperator::LessThan
+                | BinaryOperator::LessEqualThan
+                | BinaryOperator::GreaterThan
+                | BinaryOperator::GreaterEqualThan
+        )
+    }
+
+    #[must_use]
+    pub fn is_relational(self) -> bool {
+        matches!(
+            self,
+            BinaryOperator::In
+                | BinaryOperator::NotIn
+                | BinaryOperator::Instanceof
+        )
+    }
+
+    #[must_use]
+    pub fn is_pattern_matching(self) -> bool {
+        matches!(
+            self,
+            BinaryOperator::Is
+                | BinaryOperator::IsNot
+        )
+    }
 }
 
 impl From<OxcBinaryOperator> for BinaryOperator {
@@ -159,6 +288,30 @@ impl From<RuffBinaryOperator> for BinaryOperator {
     }
 }
 
+impl Into<RuffBinaryOperator> for BinaryOperator {
+    fn into(self) -> RuffBinaryOperator {
+        match self {
+            BinaryOperator::Addition => RuffBinaryOperator::Add,
+            BinaryOperator::Subtraction => RuffBinaryOperator::Sub,
+            BinaryOperator::Multiplication => RuffBinaryOperator::Mult,
+            BinaryOperator::MatMultiplication => RuffBinaryOperator::MatMult,
+            BinaryOperator::FloorDivision => RuffBinaryOperator::FloorDiv,
+            BinaryOperator::Division => RuffBinaryOperator::Div,
+            BinaryOperator::Remainder => RuffBinaryOperator::Mod,
+            BinaryOperator::Exponential => RuffBinaryOperator::Pow,
+
+            BinaryOperator::ShiftLeft => RuffBinaryOperator::LShift,
+            BinaryOperator::ShiftRight => RuffBinaryOperator::RShift,
+
+            BinaryOperator::BitwiseOr => RuffBinaryOperator::BitOr,
+            BinaryOperator::BitwiseXor => RuffBinaryOperator::BitXor,
+            BinaryOperator::BitwiseAnd => RuffBinaryOperator::BitAnd,
+
+            _ => unreachable!("These are not binary operators in Ruff. You may refer to comparison operators."),
+        }
+    }
+}
+
 impl From<RuffComparisonOperator> for BinaryOperator {
     fn from(value: RuffComparisonOperator) -> Self {
         match value {
@@ -172,6 +325,24 @@ impl From<RuffComparisonOperator> for BinaryOperator {
             RuffComparisonOperator::IsNot => BinaryOperator::IsNot,
             RuffComparisonOperator::In => BinaryOperator::In,
             RuffComparisonOperator::NotIn => BinaryOperator::NotIn,
+        }
+    }
+}
+
+impl Into<RuffComparisonOperator> for BinaryOperator {
+    fn into(self) -> RuffComparisonOperator {
+        match self {
+            BinaryOperator::Equality | BinaryOperator::StrictEquality => RuffComparisonOperator::Eq,
+            BinaryOperator::Inequality | BinaryOperator::StrictInequality => RuffComparisonOperator::NotEq,
+            BinaryOperator::LessThan => RuffComparisonOperator::Lt,
+            BinaryOperator::LessEqualThan => RuffComparisonOperator::LtE,
+            BinaryOperator::GreaterThan => RuffComparisonOperator::Gt,
+            BinaryOperator::GreaterEqualThan => RuffComparisonOperator::GtE,
+            BinaryOperator::Is => RuffComparisonOperator::Is,
+            BinaryOperator::IsNot => RuffComparisonOperator::IsNot,
+            BinaryOperator::In => RuffComparisonOperator::In,
+            BinaryOperator::NotIn => RuffComparisonOperator::NotIn,
+            _ => unreachable!("These are not comparison operators in Ruff. You may refer to binary operators."),
         }
     }
 }

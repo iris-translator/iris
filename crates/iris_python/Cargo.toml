@@ -7,3 +7,4 @@ edition.workspace = true
 
 [dependencies]
 ruff = { workspace = true }
+iris_low_level_ir = { workspace = true }

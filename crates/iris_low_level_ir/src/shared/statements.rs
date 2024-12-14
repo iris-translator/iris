@@ -3,6 +3,7 @@
 use crate::shared::declarations::Declaration;
 use crate::shared::expressions::{Expression, Identifier};
 use crate::shared::span::Span;
+use crate::shared::{VariableDeclaration, Function};
 
 #[derive(Debug, Clone)]
 pub enum Statement {
@@ -10,7 +11,6 @@ pub enum Statement {
     BreakStatement(Box<BreakStatement>),
     ContinueStatement(ContinueStatement),
     DebuggerStatement(DebuggerStatement),
-    Declaration(Box<Declaration>),
     EmptyStatement(EmptyStatement),
     ExpressionStatement(Box<ExpressionStatement>),
     ForStatement(Box<ForStatement>),
@@ -20,7 +20,10 @@ pub enum Statement {
     ThrowStatement(Box<ThrowStatement>),
     TryStatement(Box<TryStatement>),
     WhileStatement(Box<WhileStatement>),
-    ScopeStatement(Box<ScopeStatement>)
+    ScopeStatement(Box<ScopeStatement>),
+
+    VariableDeclaration(Box<VariableDeclaration>),
+    FunctionDeclaration(Box<Function>),
 }
 
 #[derive(Debug, Clone)]
