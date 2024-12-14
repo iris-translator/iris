@@ -6,6 +6,5 @@ categories.workspace = true
 version.workspace = true
 
 [dependencies]
-serde = { workspace = true }
 oxc = { workspace = true }
-nonmax = { workspace = true }
+ruff = { workspace = true }

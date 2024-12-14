@@ -29,3 +29,5 @@ compact_str = "0.8.0"
 iris_python = { path = "crates/iris_python" }
 iris_ecma = { path = "crates/iris_ecma" }
 iris_low_level_ir = { path = "crates/iris_low_level_ir" }
+
+ruff = { path = "crates/ruff"}

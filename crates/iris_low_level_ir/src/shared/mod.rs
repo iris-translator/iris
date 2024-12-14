@@ -7,6 +7,7 @@ mod derivatives;
 mod module_declarations;
 mod program;
 mod assignment;
+mod operator;
 
 pub use expressions::*;
 pub use literals::*;
@@ -17,3 +18,4 @@ pub use derivatives::*;
 // pub use module_declarations::*;/
 pub use program::*;
 pub use assignment::*;
+pub use operator::*;

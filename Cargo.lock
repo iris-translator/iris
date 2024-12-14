@@ -68,9 +68,9 @@ dependencies = [
 
 [[package]]
 name = "bstr"
-version = "1.11.0"
+version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a68f1f47cdf0ec8ee4b941b2eee2a80cb796db73118c0dd09ac63fbe405be22"
+checksum = "786a307d683a5bf92e6fd5fd69a7eb613751668d1d8d67d802846dfe367c62c8"
 dependencies = [
  "memchr",
  "regex-automata",
@@ -316,22 +316,15 @@ dependencies = [
 name = "iris_low_level_ir"
 version = "0.1.0"
 dependencies = [
- "nonmax",
  "oxc",
- "serde",
+ "ruff",
 ]
 
 [[package]]
 name = "iris_python"
 version = "0.1.0"
 dependencies = [
- "ruff_python_ast",
- "ruff_python_codegen",
- "ruff_python_parser",
- "ruff_python_resolver",
- "ruff_python_semantic",
- "ruff_python_stdlib",
- "ruff_python_trivia",
+ "ruff",
 ]
 
 [[package]]
@@ -1088,6 +1081,19 @@ checksum = "93411e420bcd1a75ddd1dc3caf18c23155eda2c090631a85af21ba19e97093b5"
 dependencies = [
  "smallvec",
  "str_indices",
+]
+
+[[package]]
+name = "ruff"
+version = "0.1.0"
+dependencies = [
+ "ruff_python_ast",
+ "ruff_python_codegen",
+ "ruff_python_parser",
+ "ruff_python_resolver",
+ "ruff_python_semantic",
+ "ruff_python_stdlib",
+ "ruff_python_trivia",
 ]
 
 [[package]]

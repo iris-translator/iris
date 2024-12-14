@@ -1,4 +1,6 @@
-mod traverse;
+mod generalization;
+mod lower;
+mod characterization;
 
 pub mod toolchain {
     pub use oxc::*;
@@ -10,6 +12,7 @@ pub mod toolchain {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
     use oxc::allocator::Allocator;
     use oxc::parser::Parser;
     use oxc::semantic::SemanticBuilder;
@@ -51,8 +54,10 @@ mod tests {
             .with_excess_capacity(2.0)
             .build(&program);
         let (symbols, scopes) = ret.semantic.into_symbol_table_and_scope_tree();
-        let mut traverser = crate::traverse::IrisTraverseToIR::new();
-        traverser.build(&allocator, &mut program, symbols, scopes);
+        let mut transformer = crate::lower::Lower::new(&allocator, Path::new("test.js"));
+        let transformed = transformer.transformer.build_with_symbols_and_scopes(symbols, scopes, &mut program);
+        let mut traverser = crate::generalization::EcmaGeneralization::new();
+        traverser.build(&allocator, &mut program, transformed.symbols, transformed.scopes);
         println!("{:#?}", traverser.ir);
     }
 }

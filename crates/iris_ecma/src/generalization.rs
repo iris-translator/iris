@@ -8,11 +8,11 @@ use oxc::span::GetSpan;
 use oxc_traverse::traverse_mut;
 use crate::toolchain::span::SPAN;
 
-pub struct IrisTraverseToIR {
+pub struct EcmaGeneralization {
     pub ir: Option<Program>,
 }
 
-impl IrisTraverseToIR {
+impl EcmaGeneralization {
     pub fn new() -> Self {
         Self {
             ir: None,
@@ -24,13 +24,13 @@ impl IrisTraverseToIR {
     }
 }
 
-impl Traverse<'_> for IrisTraverseToIR {
+impl Traverse<'_> for EcmaGeneralization {
     fn enter_program(&mut self, node: &mut oxc::ast::ast::Program<'_>, ctx: &mut TraverseCtx<'_>) {
         self.ir = Some(self.trans_program(node, ctx));
     }
 }
 
-impl<'a> IrisTraverseToIR {
+impl<'a> EcmaGeneralization {
     pub fn trans_expression(&mut self, it: &oxc::ast::ast::Expression, ctx: &mut TraverseCtx<'a>) -> Expression {
         use oxc::ast::ast::Expression as OxcExpression;
         match it {
@@ -273,6 +273,9 @@ impl<'a> IrisTraverseToIR {
     }
 
     pub fn trans_binary_expression(&mut self, it: &oxc::ast::ast::BinaryExpression, ctx: &mut TraverseCtx<'a>) -> BinaryExpression {
+        if matches!(it.operator, oxc::ast::ast::BinaryOperator::In) {
+            eprintln!("Warning: The `in` operator in JavaScript is not universal, which means the operation is not supported in all languages.")
+        }
         BinaryExpression {
             span: it.span.into(),
             operator: it.operator.into(),
@@ -344,11 +347,7 @@ impl<'a> IrisTraverseToIR {
     pub fn trans_logical_expression(&mut self, it: &oxc::ast::ast::LogicalExpression, ctx: &mut TraverseCtx<'a>) -> LogicalExpression {
         LogicalExpression {
             span: it.span.into(),
-            operator: match it.operator {
-                oxc::ast::ast::LogicalOperator::And => LogicalOperator::LogicalAND,
-                oxc::ast::ast::LogicalOperator::Or => LogicalOperator::LogicalOR,
-                oxc::ast::ast::LogicalOperator::Coalesce => LogicalOperator::Coalesce,
-            },
+            operator: it.operator.into(),
             left: self.trans_expression(&it.left, ctx),
             right: self.trans_expression(&it.right, ctx),
         }
@@ -641,64 +640,23 @@ impl<'a> IrisTraverseToIR {
         VariableDeclarator {
             span: it.span.into(),
             init: it.init.as_ref().map(|x| self.trans_expression(x, ctx)),
-            id: self.trans_binding_pattern(&it.id, ctx),
+            id: self.trans_binding_pattern(&it.id),
         }
     }
 
-    pub fn trans_binding_pattern(&mut self, it: &oxc::ast::ast::BindingPattern, ctx: &mut TraverseCtx<'a>) -> BindingPattern {
+    pub fn trans_binding_pattern(&mut self, it: &oxc::ast::ast::BindingPattern) -> BindingPattern {
         BindingPattern {
             kind: match &it.kind {
                 oxc::ast::ast::BindingPatternKind::BindingIdentifier(it) => BindingPatternKind::BindingIdentifier(Box::from(Self::trans_binding_identifier(it))),
-                oxc::ast::ast::BindingPatternKind::ObjectPattern(it) => BindingPatternKind::ObjectPattern(Box::from(self.trans_object_pattern(it, ctx))),
-                oxc::ast::ast::BindingPatternKind::ArrayPattern(it) => BindingPatternKind::ArrayPattern(Box::from(self.trans_array_pattern(it, ctx))),
-                oxc::ast::ast::BindingPatternKind::AssignmentPattern(it) => BindingPatternKind::AssignmentPattern(Box::from(self.trans_assignment_pattern(it, ctx))),
+                _ => unimplemented!("Destructuring is not generalized. Please wait Oxc implements its transformation to simple assignment.")
             }
         }
     }
 
-    pub fn trans_object_pattern(&mut self, it: &oxc::ast::ast::ObjectPattern, ctx: &mut TraverseCtx<'a>) -> ObjectPattern {
-        ObjectPattern {
-            span: it.span.into(),
-            properties: it.properties.iter().map(|x| self.trans_binding_property(x, ctx)).collect::<Vec<_>>(),
-            rest: it.rest.as_ref().map(|x| self.trans_binding_rest_element(x, ctx)),
-        }
-    }
-
-    pub fn trans_array_pattern(&mut self, it: &oxc::ast::ast::ArrayPattern, ctx: &mut TraverseCtx<'a>) -> ArrayPattern {
-        ArrayPattern {
-            span: it.span.into(),
-            elements: it.elements.iter().map(|x| x.as_ref().map(|y| self.trans_binding_pattern(y, ctx))).collect::<Vec<_>>(),
-            rest: it.rest.as_ref().map(|x| self.trans_binding_rest_element(x, ctx)),
-        }
-    }
-
-    pub fn trans_assignment_pattern(&mut self, it: &oxc::ast::ast::AssignmentPattern, ctx: &mut TraverseCtx<'a>) -> AssignmentPattern {
-        AssignmentPattern {
-            span: it.span.into(),
-            left: self.trans_binding_pattern(&it.left, ctx),
-            right: self.trans_expression(&it.right, ctx),
-        }
-    }
-
-    pub fn trans_binding_property(&mut self, it: &oxc::ast::ast::BindingProperty, ctx: &mut TraverseCtx<'a>) -> BindingProperty {
-        use oxc::ast::ast::PropertyKey;
-        BindingProperty {
-            span: it.span.into(),
-            value: self.trans_binding_pattern(&it.value, ctx),
-            key: match &it.key {
-                PropertyKey::StaticIdentifier(id) => Expression::Identifier(Self::trans_identifier_name(id)),
-                PropertyKey::PrivateIdentifier(id) => Expression::Identifier(Self::trans_private_identifier(id)),
-                it @ match_expression!(PropertyKey) => self.trans_expression(it.as_expression().unwrap(), ctx)
-            },
-            shorthand: it.shorthand,
-            computed: it.computed,
-        }
-    }
-
-    pub fn trans_binding_rest_element(&mut self, it: &oxc::ast::ast::BindingRestElement, ctx: &mut TraverseCtx<'a>) -> BindingRestElement {
+    pub fn trans_binding_rest_element(&mut self, it: &oxc::ast::ast::BindingRestElement) -> BindingRestElement {
         BindingRestElement {
             span: it.span.into(),
-            argument: self.trans_binding_pattern(&it.argument, ctx),
+            argument: self.trans_binding_pattern(&it.argument),
         }
     }
 
@@ -866,7 +824,7 @@ impl<'a> IrisTraverseToIR {
     pub fn trans_formal_parameter(&mut self, it: &oxc::ast::ast::FormalParameter, ctx: &mut TraverseCtx<'a>) -> FormalParameter {
         FormalParameter {
             span: it.span.into(),
-            id: self.trans_binding_pattern(&it.pattern, ctx),
+            id: self.trans_binding_pattern(&it.pattern),
             decorators: it.decorators.iter().map(|x| self.trans_decorator(x, ctx)).collect::<Vec<_>>(),
         }
     }
@@ -876,7 +834,7 @@ impl<'a> IrisTraverseToIR {
             span: it.span.into(),
             kind: it.kind.into(),
             items: it.items.iter().map(|x| self.trans_formal_parameter(x, ctx)).collect::<Vec<_>>(),
-            rest: it.rest.as_ref().map(|x| self.trans_binding_rest_element(x, ctx)),
+            rest: it.rest.as_ref().map(|x| self.trans_binding_rest_element(x)),
         }
     }
 

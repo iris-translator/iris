@@ -1,0 +1,43 @@
+[package]
+name = "ruff"
+authors.workspace = true
+categories.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+
+[dependencies.ruff_python_codegen]
+git = "https://github.com/astral-sh/ruff.git"
+package = "ruff_python_codegen"
+rev = "2c13e6513d471cb815941722b64a46a86ad03f82"
+
+[dependencies.ruff_python_ast]
+git = "https://github.com/astral-sh/ruff.git"
+package = "ruff_python_ast"
+rev = "2c13e6513d471cb815941722b64a46a86ad03f82"
+
+[dependencies.ruff_python_trivia]
+git = "https://github.com/astral-sh/ruff.git"
+package = "ruff_python_trivia"
+rev = "2c13e6513d471cb815941722b64a46a86ad03f82"
+
+[dependencies.ruff_python_semantic]
+git = "https://github.com/astral-sh/ruff.git"
+package = "ruff_python_semantic"
+rev = "2c13e6513d471cb815941722b64a46a86ad03f82"
+
+[dependencies.ruff_python_resolver]
+git = "https://github.com/astral-sh/ruff.git"
+package = "ruff_python_resolver"
+rev = "2c13e6513d471cb815941722b64a46a86ad03f82"
+
+[dependencies.ruff_python_stdlib]
+git = "https://github.com/astral-sh/ruff.git"
+package = "ruff_python_stdlib"
+rev = "2c13e6513d471cb815941722b64a46a86ad03f82"
+
+[dependencies.ruff_python_parser]
+git = "https://github.com/astral-sh/ruff.git"
+package = "ruff_python_parser"
+rev = "2c13e6513d471cb815941722b64a46a86ad03f82"
