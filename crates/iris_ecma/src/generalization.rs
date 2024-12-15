@@ -1,12 +1,15 @@
-use oxc::allocator::Allocator;
-use crate::toolchain::traverse::{Traverse, TraverseCtx};
 use crate::toolchain::index::Idx;
+use crate::toolchain::span::SPAN;
+use crate::toolchain::traverse::{Traverse, TraverseCtx};
+use either::{Either, Left, Right};
 use iris_low_level_ir::shared::*;
-use oxc::ast::{match_assignment_target, match_declaration, match_expression, match_member_expression};
+use oxc::allocator::{Allocator, CloneIn};
+use oxc::ast::{
+    match_assignment_target, match_declaration, match_expression, match_member_expression,
+};
 use oxc::semantic::{ScopeTree, SymbolTable};
 use oxc::span::GetSpan;
 use oxc_traverse::traverse_mut;
-use crate::toolchain::span::SPAN;
 
 pub struct EcmaGeneralization {
     pub ir: Option<Program>,
@@ -14,12 +17,16 @@ pub struct EcmaGeneralization {
 
 impl EcmaGeneralization {
     pub fn new() -> Self {
-        Self {
-            ir: None,
-        }
+        Self { ir: None }
     }
 
-    pub fn build<'a>(&mut self, allocator: &'a Allocator, program: &'a mut oxc::ast::ast::Program<'a>, symbols: SymbolTable, scopes: ScopeTree) {
+    pub fn build<'a>(
+        &mut self,
+        allocator: &'a Allocator,
+        program: &'a mut oxc::ast::ast::Program<'a>,
+        symbols: SymbolTable,
+        scopes: ScopeTree,
+    ) {
         traverse_mut(self, allocator, program, symbols, scopes);
     }
 }
@@ -31,35 +38,87 @@ impl Traverse<'_> for EcmaGeneralization {
 }
 
 impl<'a> EcmaGeneralization {
-    pub fn trans_expression(&mut self, it: &oxc::ast::ast::Expression, ctx: &mut TraverseCtx<'a>) -> Expression {
+    pub fn trans_expression(
+        &mut self,
+        it: &oxc::ast::ast::Expression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> Expression {
         use oxc::ast::ast::Expression as OxcExpression;
         match it {
-            OxcExpression::BooleanLiteral(it) => Expression::BooleanLiteral(Self::trans_boolean_literal(it)),
+            OxcExpression::BooleanLiteral(it) => {
+                Expression::BooleanLiteral(Self::trans_boolean_literal(it))
+            }
             OxcExpression::NullLiteral(it) => Expression::NullLiteral(Self::trans_null_literal(it)),
-            OxcExpression::NumericLiteral(it) => Expression::NumericLiteral(Self::trans_numeric_literal(it)),
-            OxcExpression::BigIntLiteral(it) => Expression::NumericLiteral(Self::trans_bigint_literal(it)),
+            OxcExpression::NumericLiteral(it) => {
+                Expression::NumericLiteral(Self::trans_numeric_literal(it))
+            }
+            OxcExpression::BigIntLiteral(it) => {
+                Expression::NumericLiteral(Self::trans_bigint_literal(it))
+            }
             OxcExpression::RegExpLiteral(_it) => unimplemented!("RegExpLiteral"),
-            OxcExpression::StringLiteral(it) => Expression::StringLiteral(Self::trans_string_literal(it)),
-            OxcExpression::TemplateLiteral(it) => Expression::TemplateLiteral(Box::new(self.trans_template_literal(it, ctx))),
-            OxcExpression::ArrayExpression(it) => Expression::ArrayExpression(Box::new(self.trans_array_expression(it, ctx))),
-            OxcExpression::ArrowFunctionExpression(it) => Expression::LambdaExpression(Box::new(self.trans_arrow_function_expression(it, ctx))),
-            OxcExpression::AssignmentExpression(it) => Expression::AssignmentExpression(Box::new(self.trans_assignment_expression(it, ctx).unwrap())),
-            OxcExpression::AwaitExpression(it) => Expression::AwaitExpression(Box::new(self.trans_await_expression(it, ctx))),
-            OxcExpression::BinaryExpression(it) => Expression::BinaryExpression(Box::new(self.trans_binary_expression(it, ctx))),
-            OxcExpression::CallExpression(it) => Expression::CallExpression(Box::new(self.trans_call_expression(it, ctx))),
-            OxcExpression::ChainExpression(it) => Expression::ChainExpression(Box::new(self.trans_chain_expression(it, ctx))),
-            OxcExpression::ConditionalExpression(it) => Expression::ConditionalExpression(Box::new(self.trans_conditional_expression(it, ctx))),
-            OxcExpression::FunctionExpression(it) => Expression::FunctionExpression(Box::new(self.trans_function_expression(it, ctx))),
-            OxcExpression::LogicalExpression(it) => Expression::LogicalExpression(Box::new(self.trans_logical_expression(it, ctx))),
-            OxcExpression::SequenceExpression(it) => Expression::SequenceExpression(Box::new(self.trans_sequence_expression(it, ctx))),
-            OxcExpression::UnaryExpression(it) => Expression::UnaryExpression(Box::new(self.trans_unary_expression(it, ctx))),
-            OxcExpression::UpdateExpression(it) => Expression::AssignmentExpression(Box::new(self.trans_update_expression(it, ctx))),
-            OxcExpression::YieldExpression(it) => Expression::YieldExpression(Box::new(self.trans_yield_expression(it, ctx))),
-            OxcExpression::ObjectExpression(it) => Expression::ObjectExpression(Box::new(self.object_expression(it, ctx))),
-            OxcExpression::Identifier(it) => Expression::Identifier(self.trans_identifier_reference(it, ctx)),
-            it @ match_member_expression!(OxcExpression) => Expression::MemberExpression(Box::new(self.trans_member_expression(it.as_member_expression().unwrap(), ctx))),
-            OxcExpression::ParenthesizedExpression(it) => Expression::ParenthesizedExpression(Box::new(self.trans_parenthesized_expression(it, ctx))),
-            OxcExpression::NewExpression(it) => Expression::CallExpression(Box::new(self.trans_new_expression(it, ctx))),
+            OxcExpression::StringLiteral(it) => {
+                Expression::StringLiteral(Self::trans_string_literal(it))
+            }
+            OxcExpression::TemplateLiteral(it) => {
+                Expression::TemplateLiteral(Box::new(self.trans_template_literal(it, ctx)))
+            }
+            OxcExpression::ArrayExpression(it) => {
+                Expression::ArrayExpression(Box::new(self.trans_array_expression(it, ctx)))
+            }
+            OxcExpression::ArrowFunctionExpression(it) => Expression::LambdaExpression(Box::new(
+                self.trans_arrow_function_expression(it, ctx),
+            )),
+            OxcExpression::AssignmentExpression(it) => Expression::AssignmentExpression(Box::new(
+                self.trans_assignment_expression(it, ctx).unwrap(),
+            )),
+            OxcExpression::AwaitExpression(it) => {
+                Expression::AwaitExpression(Box::new(self.trans_await_expression(it, ctx)))
+            }
+            OxcExpression::BinaryExpression(it) => {
+                Expression::BinaryExpression(Box::new(self.trans_binary_expression(it, ctx)))
+            }
+            OxcExpression::CallExpression(it) => {
+                Expression::CallExpression(Box::new(self.trans_call_expression(it, ctx)))
+            }
+            OxcExpression::ChainExpression(it) => {
+                Expression::ChainExpression(Box::new(self.trans_chain_expression(it, ctx)))
+            }
+            OxcExpression::ConditionalExpression(it) => Expression::ConditionalExpression(
+                Box::new(self.trans_conditional_expression(it, ctx)),
+            ),
+            OxcExpression::FunctionExpression(it) => {
+                Expression::FunctionExpression(Box::new(self.trans_function_expression(it, ctx)))
+            }
+            OxcExpression::LogicalExpression(it) => {
+                Expression::LogicalExpression(Box::new(self.trans_logical_expression(it, ctx)))
+            }
+            OxcExpression::SequenceExpression(it) => {
+                Expression::SequenceExpression(Box::new(self.trans_sequence_expression(it, ctx)))
+            }
+            OxcExpression::UnaryExpression(it) => {
+                Expression::UnaryExpression(Box::new(self.trans_unary_expression(it, ctx)))
+            }
+            OxcExpression::UpdateExpression(it) => {
+                Expression::AssignmentExpression(Box::new(self.trans_update_expression(it, ctx)))
+            }
+            OxcExpression::YieldExpression(it) => {
+                Expression::YieldExpression(Box::new(self.trans_yield_expression(it, ctx)))
+            }
+            OxcExpression::ObjectExpression(it) => {
+                Expression::ObjectExpression(Box::new(self.object_expression(it, ctx)))
+            }
+            OxcExpression::Identifier(it) => {
+                Expression::Identifier(self.trans_identifier_reference(it, ctx))
+            }
+            it @ match_member_expression!(OxcExpression) => Expression::MemberExpression(Box::new(
+                self.trans_member_expression(it.as_member_expression().unwrap(), ctx),
+            )),
+            OxcExpression::ParenthesizedExpression(it) => Expression::ParenthesizedExpression(
+                Box::new(self.trans_parenthesized_expression(it, ctx)),
+            ),
+            OxcExpression::NewExpression(it) => {
+                Expression::CallExpression(Box::new(self.trans_new_expression(it, ctx)))
+            }
             _ => unimplemented!(),
         }
     }
@@ -73,7 +132,7 @@ impl<'a> EcmaGeneralization {
 
     pub fn trans_null_literal(it: &oxc::ast::ast::NullLiteral) -> NullLiteral {
         NullLiteral {
-            span: it.span.into()
+            span: it.span.into(),
         }
     }
 
@@ -113,16 +172,32 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_template_literal(&mut self, it: &oxc::ast::ast::TemplateLiteral, ctx: &mut TraverseCtx<'a>) -> TemplateLiteral {
+    pub fn trans_template_literal(
+        &mut self,
+        it: &oxc::ast::ast::TemplateLiteral,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> TemplateLiteral {
         TemplateLiteral {
             span: it.span.into(),
-            quasis: it.quasis.iter().map(|x| x.value.raw.to_string()).collect::<Vec<_>>(),
-            expressions: it.expressions.iter().map(|x| self.trans_expression(x, ctx)).collect::<Vec<_>>(),
+            quasis: it
+                .quasis
+                .iter()
+                .map(|x| x.value.raw.to_string())
+                .collect::<Vec<_>>(),
+            expressions: it
+                .expressions
+                .iter()
+                .map(|x| self.trans_expression(x, ctx))
+                .collect::<Vec<_>>(),
             prefix: FStringPrefix::Regular,
         }
     }
 
-    pub fn trans_identifier_reference(&mut self, it: &oxc::ast::ast::IdentifierReference, ctx: &mut TraverseCtx<'a>) -> Identifier {
+    pub fn trans_identifier_reference(
+        &mut self,
+        it: &oxc::ast::ast::IdentifierReference,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> Identifier {
         let reference = ctx.symbols().get_reference(it.reference_id());
         Identifier {
             span: it.span.into(),
@@ -159,21 +234,37 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_array_expression(&mut self, it: &oxc::ast::ast::ArrayExpression, ctx: &mut TraverseCtx<'a>) -> ArrayExpression {
+    pub fn trans_array_expression(
+        &mut self,
+        it: &oxc::ast::ast::ArrayExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ArrayExpression {
         use oxc::ast::ast::ArrayExpressionElement;
         ArrayExpression {
             span: it.span.into(),
-            elements: it.elements.iter().map(|x| match x {
-                ArrayExpressionElement::Elision(it) => Expression::Elision(Elision {
-                    span: it.span.into(),
-                }),
-                ArrayExpressionElement::SpreadElement(it) => Expression::SpreadElement(Box::new(self.trans_spread_element(it, ctx))),
-                expr @ match_expression!(ArrayExpressionElement) => self.trans_expression(expr.as_expression().unwrap(), ctx)
-            }).collect::<Vec<_>>(),
+            elements: it
+                .elements
+                .iter()
+                .map(|x| match x {
+                    ArrayExpressionElement::Elision(it) => Expression::Elision(Elision {
+                        span: it.span.into(),
+                    }),
+                    ArrayExpressionElement::SpreadElement(it) => {
+                        Expression::SpreadElement(Box::new(self.trans_spread_element(it, ctx)))
+                    }
+                    expr @ match_expression!(ArrayExpressionElement) => {
+                        self.trans_expression(expr.as_expression().unwrap(), ctx)
+                    }
+                })
+                .collect::<Vec<_>>(),
         }
     }
 
-    pub fn trans_arrow_function_expression(&mut self, it: &oxc::ast::ast::ArrowFunctionExpression, ctx: &mut TraverseCtx<'a>) -> LambdaExpression {
+    pub fn trans_arrow_function_expression(
+        &mut self,
+        it: &oxc::ast::ast::ArrowFunctionExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> LambdaExpression {
         LambdaExpression {
             span: it.span.into(),
             params: self.trans_formal_parameters(&it.params, ctx),
@@ -183,7 +274,11 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_function_expression(&mut self, it: &oxc::ast::ast::Function, ctx: &mut TraverseCtx<'a>) -> Function {
+    pub fn trans_function_expression(
+        &mut self,
+        it: &oxc::ast::ast::Function,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> Function {
         Function {
             span: it.span.into(),
             r#type: FunctionType::FunctionExpression,
@@ -204,15 +299,31 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_function_body(&mut self, it: &oxc::ast::ast::FunctionBody, ctx: &mut TraverseCtx<'a>) -> FunctionBody {
+    pub fn trans_function_body(
+        &mut self,
+        it: &oxc::ast::ast::FunctionBody,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> FunctionBody {
         FunctionBody {
             span: it.span.into(),
-            statements: it.statements.iter().map(|x| self.trans_statement(x, ctx)).collect::<Vec<_>>(),
-            directives: it.directives.iter().map(|x| Self::trans_directive(x)).collect::<Vec<_>>(),
+            statements: it
+                .statements
+                .iter()
+                .map(|x| self.trans_statement(x, ctx))
+                .collect::<Vec<_>>(),
+            directives: it
+                .directives
+                .iter()
+                .map(|x| Self::trans_directive(x))
+                .collect::<Vec<_>>(),
         }
     }
 
-    pub fn trans_function_declaration(&mut self, it: &oxc::ast::ast::Function, ctx: &mut TraverseCtx<'a>) -> Function {
+    pub fn trans_function_declaration(
+        &mut self,
+        it: &oxc::ast::ast::Function,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> Function {
         Function {
             span: it.span.into(),
             r#type: FunctionType::FunctionDeclaration,
@@ -226,23 +337,38 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_declaration(&mut self, it: &oxc::ast::ast::Declaration, ctx: &mut TraverseCtx<'a>) -> Declaration {
+    pub fn trans_declaration(
+        &mut self,
+        it: &oxc::ast::ast::Declaration,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> Declaration {
         match it {
-            oxc::ast::ast::Declaration::VariableDeclaration(it) => Declaration::VariableDeclaration(Box::new(self.trans_variable_declaration(it, ctx))),
-            oxc::ast::ast::Declaration::FunctionDeclaration(it) => Declaration::FunctionDeclaration(Box::new(self.trans_function_declaration(it, ctx))),
-            _ => unimplemented!()
+            oxc::ast::ast::Declaration::VariableDeclaration(it) => {
+                Declaration::VariableDeclaration(Box::from(self.trans_variable_declaration(it, ctx)))
+            }
+            oxc::ast::ast::Declaration::FunctionDeclaration(it) => {
+                Declaration::FunctionDeclaration(Box::from(self.trans_function_declaration(it, ctx)))
+            }
+            _ => unimplemented!(),
         }
     }
 
-    pub fn trans_decorator(&mut self, it: &oxc::ast::ast::Decorator, ctx: &mut TraverseCtx<'a>) -> Decorator {
+    pub fn trans_decorator(
+        &mut self,
+        it: &oxc::ast::ast::Decorator,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> Decorator {
         Decorator {
             span: it.span.into(),
             expression: self.trans_expression(&it.expression, ctx),
         }
     }
 
-
-    pub fn trans_assignment_expression(&mut self, it: &oxc::ast::ast::AssignmentExpression, ctx: &mut TraverseCtx<'a>) -> Option<AssignmentExpression> {
+    pub fn trans_assignment_expression(
+        &mut self,
+        it: &oxc::ast::ast::AssignmentExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> Option<AssignmentExpression> {
         if !matches!(it.operator, oxc::ast::ast::AssignmentOperator::Assign) {
             // First we need to transform the assignment with other operators into a simple assignment with the operator
             let bin = BinaryExpression {
@@ -265,16 +391,26 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_await_expression(&mut self, it: &oxc::ast::ast::AwaitExpression, ctx: &mut TraverseCtx<'a>) -> AwaitExpression {
+    pub fn trans_await_expression(
+        &mut self,
+        it: &oxc::ast::ast::AwaitExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> AwaitExpression {
         AwaitExpression {
             span: it.span.into(),
             argument: self.trans_expression(&it.argument, ctx),
         }
     }
 
-    pub fn trans_binary_expression(&mut self, it: &oxc::ast::ast::BinaryExpression, ctx: &mut TraverseCtx<'a>) -> BinaryExpression {
+    pub fn trans_binary_expression(
+        &mut self,
+        it: &oxc::ast::ast::BinaryExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> BinaryExpression {
         if matches!(it.operator, oxc::ast::ast::BinaryOperator::In) {
-            eprintln!("Warning: The `in` operator in JavaScript is not universal, which means the operation is not supported in all languages.")
+            eprintln!(
+                "Warning: The `in` operator in JavaScript is not universal, which means the operation is not supported in all languages."
+            )
         }
         BinaryExpression {
             span: it.span.into(),
@@ -284,58 +420,104 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_argument(&mut self, it: &oxc::ast::ast::Argument, ctx: &mut TraverseCtx<'a>) -> Expression {
+    pub fn trans_argument(
+        &mut self,
+        it: &oxc::ast::ast::Argument,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> Expression {
         use oxc::ast::ast::Argument;
         match it {
-            Argument::SpreadElement(it) => Expression::SpreadElement(Box::new(self.trans_spread_element(it, ctx))),
-            it @ match_expression!(Argument) => self.trans_expression(it.as_expression().unwrap(), ctx)
+            Argument::SpreadElement(it) => {
+                Expression::SpreadElement(Box::new(self.trans_spread_element(it, ctx)))
+            }
+            it @ match_expression!(Argument) => {
+                self.trans_expression(it.as_expression().unwrap(), ctx)
+            }
         }
     }
 
-    pub fn trans_call_expression(&mut self, it: &oxc::ast::ast::CallExpression, ctx: &mut TraverseCtx<'a>) -> CallExpression {
+    pub fn trans_call_expression(
+        &mut self,
+        it: &oxc::ast::ast::CallExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> CallExpression {
         CallExpression {
             span: it.span.into(),
             callee: self.trans_expression(&it.callee, ctx),
-            arguments: it.arguments.iter().map(|x| self.trans_argument(x, ctx)).collect::<Vec<_>>(),
+            arguments: it
+                .arguments
+                .iter()
+                .map(|x| self.trans_argument(x, ctx))
+                .collect::<Vec<_>>(),
             new: false,
             optional: it.optional,
         }
     }
 
-    pub fn trans_new_expression(&mut self, it: &oxc::ast::ast::NewExpression, ctx: &mut TraverseCtx<'a>) -> CallExpression {
+    pub fn trans_new_expression(
+        &mut self,
+        it: &oxc::ast::ast::NewExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> CallExpression {
         CallExpression {
             span: it.span.into(),
             callee: self.trans_expression(&it.callee, ctx),
-            arguments: it.arguments.iter().map(|x| self.trans_argument(x, ctx)).collect::<Vec<_>>(),
+            arguments: it
+                .arguments
+                .iter()
+                .map(|x| self.trans_argument(x, ctx))
+                .collect::<Vec<_>>(),
             new: true,
             optional: false,
         }
     }
 
-    pub fn trans_spread_element(&mut self, it: &oxc::ast::ast::SpreadElement, ctx: &mut TraverseCtx<'a>) -> SpreadElement {
+    pub fn trans_spread_element(
+        &mut self,
+        it: &oxc::ast::ast::SpreadElement,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> SpreadElement {
         SpreadElement {
             span: it.span.into(),
             argument: self.trans_expression(&it.argument, ctx),
         }
     }
 
-    pub fn trans_chain_expression(&mut self, it: &oxc::ast::ast::ChainExpression, ctx: &mut TraverseCtx<'a>) -> ChainExpression {
+    pub fn trans_chain_expression(
+        &mut self,
+        it: &oxc::ast::ast::ChainExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ChainExpression {
         ChainExpression {
             span: it.span.into(),
             expression: self.trans_chain_element(&it.expression, ctx),
         }
     }
 
-    pub fn trans_chain_element(&mut self, it: &oxc::ast::ast::ChainElement, ctx: &mut TraverseCtx<'a>) -> Expression {
+    pub fn trans_chain_element(
+        &mut self,
+        it: &oxc::ast::ast::ChainElement,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> Expression {
         use oxc::ast::ast::ChainElement;
         match it {
-            ChainElement::CallExpression(it) => Expression::CallExpression(Box::new(self.trans_call_expression(it, ctx))),
-            member_expr @ match_member_expression!(ChainElement) => Expression::MemberExpression(Box::new(self.trans_member_expression(member_expr.as_member_expression().unwrap(), ctx))),
-            _ => unreachable!()
+            ChainElement::CallExpression(it) => {
+                Expression::CallExpression(Box::new(self.trans_call_expression(it, ctx)))
+            }
+            member_expr @ match_member_expression!(ChainElement) => {
+                Expression::MemberExpression(Box::new(
+                    self.trans_member_expression(member_expr.as_member_expression().unwrap(), ctx),
+                ))
+            }
+            _ => unreachable!(),
         }
     }
 
-    pub fn trans_conditional_expression(&mut self, it: &oxc::ast::ast::ConditionalExpression, ctx: &mut TraverseCtx<'a>) -> ConditionalExpression {
+    pub fn trans_conditional_expression(
+        &mut self,
+        it: &oxc::ast::ast::ConditionalExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ConditionalExpression {
         ConditionalExpression {
             span: it.span.into(),
             test: self.trans_expression(&it.test, ctx),
@@ -344,7 +526,11 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_logical_expression(&mut self, it: &oxc::ast::ast::LogicalExpression, ctx: &mut TraverseCtx<'a>) -> LogicalExpression {
+    pub fn trans_logical_expression(
+        &mut self,
+        it: &oxc::ast::ast::LogicalExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> LogicalExpression {
         LogicalExpression {
             span: it.span.into(),
             operator: it.operator.into(),
@@ -353,21 +539,37 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_sequence_expression(&mut self, it: &oxc::ast::ast::SequenceExpression, ctx: &mut TraverseCtx<'a>) -> SequenceExpression {
+    pub fn trans_sequence_expression(
+        &mut self,
+        it: &oxc::ast::ast::SequenceExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> SequenceExpression {
         SequenceExpression {
             span: it.span.into(),
-            expressions: it.expressions.iter().map(|x| self.trans_expression(x, ctx)).collect::<Vec<_>>(),
+            expressions: it
+                .expressions
+                .iter()
+                .map(|x| self.trans_expression(x, ctx))
+                .collect::<Vec<_>>(),
         }
     }
 
-    pub fn trans_parenthesized_expression(&mut self, it: &oxc::ast::ast::ParenthesizedExpression, ctx: &mut TraverseCtx<'a>) -> ParenthesizedExpression {
+    pub fn trans_parenthesized_expression(
+        &mut self,
+        it: &oxc::ast::ast::ParenthesizedExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ParenthesizedExpression {
         ParenthesizedExpression {
             span: it.span.into(),
             expression: self.trans_expression(&it.expression, ctx),
         }
     }
 
-    pub fn trans_unary_expression(&mut self, it: &oxc::ast::ast::UnaryExpression, ctx: &mut TraverseCtx<'a>) -> UnaryExpression {
+    pub fn trans_unary_expression(
+        &mut self,
+        it: &oxc::ast::ast::UnaryExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> UnaryExpression {
         UnaryExpression {
             span: it.span.into(),
             operator: it.operator.into(),
@@ -375,7 +577,11 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_update_expression(&mut self, it: &oxc::ast::ast::UpdateExpression, ctx: &mut TraverseCtx<'a>) -> AssignmentExpression {
+    pub fn trans_update_expression(
+        &mut self,
+        it: &oxc::ast::ast::UpdateExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> AssignmentExpression {
         // UpdateExpression {
         //     span: it.span.into(),
         //     increment: matches!(it.operator, oxc::ast::ast::UpdateOperator::Increment),
@@ -413,13 +619,17 @@ impl<'a> EcmaGeneralization {
             target: match left {
                 Expression::Identifier(id) => AssignmentTarget::AssignmentTargetIdentifier(id),
                 Expression::MemberExpression(mem) => AssignmentTarget::MemberExpression(mem),
-                _ => unreachable!()
+                _ => unreachable!(),
             },
             value: Expression::BinaryExpression(Box::new(bin)),
         }
     }
 
-    pub fn trans_yield_expression(&mut self, it: &oxc::ast::ast::YieldExpression, ctx: &mut TraverseCtx<'a>) -> YieldExpression {
+    pub fn trans_yield_expression(
+        &mut self,
+        it: &oxc::ast::ast::YieldExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> YieldExpression {
         YieldExpression {
             span: it.span.into(),
             argument: it.argument.as_ref().map(|x| self.trans_expression(x, ctx)),
@@ -427,18 +637,34 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn object_expression(&mut self, it: &oxc::ast::ast::ObjectExpression, ctx: &mut TraverseCtx<'a>) -> ObjectExpression {
+    pub fn object_expression(
+        &mut self,
+        it: &oxc::ast::ast::ObjectExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ObjectExpression {
         ObjectExpression {
             span: it.span.into(),
-            properties: it.properties.iter().map(|x| match x {
-                oxc::ast::ast::ObjectPropertyKind::ObjectProperty(it) => Expression::ObjectProperty(Box::new(self.trans_object_property(it, ctx))),
-                oxc::ast::ast::ObjectPropertyKind::SpreadProperty(it) => Expression::SpreadElement(Box::new(self.trans_spread_element(it, ctx)))
-            }).collect::<Vec<_>>(),
+            properties: it
+                .properties
+                .iter()
+                .map(|x| match x {
+                    oxc::ast::ast::ObjectPropertyKind::ObjectProperty(it) => {
+                        Expression::ObjectProperty(Box::new(self.trans_object_property(it, ctx)))
+                    }
+                    oxc::ast::ast::ObjectPropertyKind::SpreadProperty(it) => {
+                        Expression::SpreadElement(Box::new(self.trans_spread_element(it, ctx)))
+                    }
+                })
+                .collect::<Vec<_>>(),
             trailing_comma: it.trailing_comma.is_some(),
         }
     }
 
-    pub fn trans_object_property(&mut self, it: &oxc::ast::ast::ObjectProperty, ctx: &mut TraverseCtx<'a>) -> ObjectProperty {
+    pub fn trans_object_property(
+        &mut self,
+        it: &oxc::ast::ast::ObjectProperty,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ObjectProperty {
         use oxc::ast::ast::PropertyKey;
         ObjectProperty {
             span: it.span.into(),
@@ -458,58 +684,110 @@ impl<'a> EcmaGeneralization {
                     symbol_id: None,
                     private: true,
                 }),
-                it @ match_expression!(PropertyKey) => self.trans_expression(it.as_expression().unwrap(), ctx)
+                it @ match_expression!(PropertyKey) => {
+                    self.trans_expression(it.as_expression().unwrap(), ctx)
+                }
             },
             value: self.trans_expression(&it.value, ctx),
             method: it.method,
         }
     }
 
-    pub fn trans_statement(&mut self, it: &oxc::ast::ast::Statement, ctx: &mut TraverseCtx<'a>) -> Statement {
+    pub fn trans_statement(
+        &mut self,
+        it: &oxc::ast::ast::Statement,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> Statement {
         use oxc::ast::ast::Statement as OxcStatement;
         match it {
-            OxcStatement::BlockStatement(it) => Statement::BlockStatement(Box::new(self.trans_block_statement(it, ctx))),
-            OxcStatement::BreakStatement(it) => Statement::BreakStatement(Box::new(self.trans_break_statement(it))),
-            OxcStatement::ContinueStatement(it) => Statement::ContinueStatement(self.trans_continue_statement(it)),
-            OxcStatement::DebuggerStatement(it) => Statement::DebuggerStatement(self.trans_debugger_statement(it)),
-            OxcStatement::EmptyStatement(it) => Statement::EmptyStatement(self.trans_empty_statement(it)),
-            OxcStatement::ExpressionStatement(it) => Statement::ExpressionStatement(Box::new(self.trans_expression_statement(it, ctx))),
-            OxcStatement::ForStatement(it) => Statement::BlockStatement(Box::new(self.trans_three_part_for_statement(it, ctx))),
-            OxcStatement::IfStatement(it) => Statement::IfStatement(Box::new(self.trans_if_statement(it, ctx))),
-            OxcStatement::WhileStatement(it) => Statement::WhileStatement(Box::new(self.trans_while_statement(it, ctx))),
-            OxcStatement::DoWhileStatement(it) => Statement::WhileStatement(Box::new(self.trans_do_while_statement(it, ctx))),
-            OxcStatement::ForInStatement(it) => Statement::ForStatement(Box::new(self.trans_for_in_statement(it, ctx))),
-            OxcStatement::ForOfStatement(it) => Statement::ForStatement(Box::new(self.trans_for_of_statement(it, ctx))),
-            OxcStatement::ReturnStatement(it) => Statement::ReturnStatement(Box::new(self.trans_return_statement(it, ctx))),
-            OxcStatement::VariableDeclaration(it) => Statement::VariableDeclaration(Box::new(self.trans_variable_declaration(it, ctx))),
-            OxcStatement::FunctionDeclaration(it) => Statement::FunctionDeclaration(Box::new(self.trans_function_declaration(it, ctx))),
+            OxcStatement::BlockStatement(it) => {
+                Statement::BlockStatement(Box::new(self.trans_block_statement(it, ctx)))
+            }
+            OxcStatement::BreakStatement(it) => {
+                Statement::BreakStatement(Box::new(self.trans_break_statement(it)))
+            }
+            OxcStatement::ContinueStatement(it) => {
+                Statement::ContinueStatement(self.trans_continue_statement(it))
+            }
+            OxcStatement::DebuggerStatement(it) => {
+                Statement::DebuggerStatement(self.trans_debugger_statement(it))
+            }
+            OxcStatement::EmptyStatement(it) => {
+                Statement::EmptyStatement(self.trans_empty_statement(it))
+            }
+            OxcStatement::ExpressionStatement(it) => {
+                Statement::ExpressionStatement(Box::new(self.trans_expression_statement(it, ctx)))
+            }
+            OxcStatement::ForStatement(it) => {
+                Statement::BlockStatement(Box::new(self.trans_three_part_for_statement(it, ctx)))
+            }
+            OxcStatement::IfStatement(it) => {
+                Statement::IfStatement(Box::new(self.trans_if_statement(it, ctx)))
+            }
+            OxcStatement::WhileStatement(it) => {
+                Statement::WhileStatement(Box::new(self.trans_while_statement(it, ctx)))
+            }
+            OxcStatement::DoWhileStatement(it) => {
+                Statement::WhileStatement(Box::new(self.trans_do_while_statement(it, ctx)))
+            }
+            OxcStatement::ForInStatement(it) => {
+                Statement::ForStatement(Box::new(self.trans_for_in_statement(it, ctx)))
+            }
+            OxcStatement::ForOfStatement(it) => {
+                Statement::ForStatement(Box::new(self.trans_for_of_statement(it, ctx)))
+            }
+            OxcStatement::ReturnStatement(it) => {
+                Statement::ReturnStatement(Box::new(self.trans_return_statement(it, ctx)))
+            }
+            OxcStatement::VariableDeclaration(it) => {
+                Statement::VariableDeclaration(Box::new(self.trans_variable_declaration(it, ctx)))
+            }
+            OxcStatement::FunctionDeclaration(it) => {
+                Statement::FunctionDeclaration(Box::new(self.trans_function_declaration(it, ctx)))
+            }
             _ => unimplemented!(),
         }
     }
 
-    pub fn trans_block_statement(&mut self, it: &oxc::ast::ast::BlockStatement, ctx: &mut TraverseCtx<'a>) -> BlockStatement {
+    pub fn trans_block_statement(
+        &mut self,
+        it: &oxc::ast::ast::BlockStatement,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> BlockStatement {
         BlockStatement {
             span: it.span.into(),
-            statements: it.body.iter().map(|x| self.trans_statement(x, ctx)).collect::<Vec<_>>(),
+            statements: it
+                .body
+                .iter()
+                .map(|x| self.trans_statement(x, ctx))
+                .collect::<Vec<_>>(),
         }
     }
 
     pub fn trans_break_statement(&mut self, it: &oxc::ast::ast::BreakStatement) -> BreakStatement {
         if it.label.is_some() {
-            unimplemented!("We currently do not support labels since it's JavaScript / C-like feature, which is not applicable for universal code.")
+            unimplemented!(
+                "We currently do not support labels since it's JavaScript / C-like feature, which is not applicable for universal code."
+            )
         }
         BreakStatement {
             span: it.span.into(),
         }
     }
 
-    pub fn trans_continue_statement(&mut self, it: &oxc::ast::ast::ContinueStatement) -> ContinueStatement {
+    pub fn trans_continue_statement(
+        &mut self,
+        it: &oxc::ast::ast::ContinueStatement,
+    ) -> ContinueStatement {
         ContinueStatement {
             span: it.span.into(),
         }
     }
 
-    pub fn trans_debugger_statement(&mut self, it: &oxc::ast::ast::DebuggerStatement) -> DebuggerStatement {
+    pub fn trans_debugger_statement(
+        &mut self,
+        it: &oxc::ast::ast::DebuggerStatement,
+    ) -> DebuggerStatement {
         DebuggerStatement {
             span: it.span.into(),
         }
@@ -521,7 +799,11 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_expression_statement(&mut self, it: &oxc::ast::ast::ExpressionStatement, ctx: &mut TraverseCtx<'a>) -> ExpressionStatement {
+    pub fn trans_expression_statement(
+        &mut self,
+        it: &oxc::ast::ast::ExpressionStatement,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ExpressionStatement {
         ExpressionStatement {
             span: it.span.into(),
             expression: self.trans_expression(&it.expression, ctx),
@@ -529,67 +811,82 @@ impl<'a> EcmaGeneralization {
     }
 
     /// Three part for is C-like for loop, but may not applicable for other languages. It can be transformed into a while loop, but there should handle some edge cases.
-    pub fn trans_three_part_for_statement(&mut self, it: &oxc::ast::ast::ForStatement, ctx: &mut TraverseCtx<'a>) -> BlockStatement {
+    pub fn trans_three_part_for_statement(
+        &mut self,
+        it: &oxc::ast::ast::ForStatement,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> BlockStatement {
         use oxc::ast::ast::ForStatementInit;
         // First, we need to scope the init.
-        let init = it.init.as_ref().map(|init| {
-            match init {
-                ForStatementInit::VariableDeclaration(decl) => Statement::VariableDeclaration(Box::from(self.trans_variable_declaration(decl, ctx))),
-                it @ match_expression!(ForStatementInit) => {
-                    let expr = it.as_expression().unwrap();
-                    Statement::ExpressionStatement(Box::new(ExpressionStatement {
-                        span: expr.span().into(),
-                        expression: self.trans_expression(expr, ctx),
-                    }))
-                }
+        let init = it.init.as_ref().map(|init| match init {
+            ForStatementInit::VariableDeclaration(decl) => Statement::VariableDeclaration(
+                Box::from(self.trans_variable_declaration(decl, ctx)),
+            ),
+            it @ match_expression!(ForStatementInit) => {
+                let expr = it.as_expression().unwrap();
+                Statement::ExpressionStatement(Box::new(ExpressionStatement {
+                    span: expr.span().into(),
+                    expression: self.trans_expression(expr, ctx),
+                }))
             }
         });
         // We should append the increment to the end of the body.
-        let body = it.update.as_ref().map(|update| {
-            match &it.body {
-                oxc::ast::ast::Statement::BlockStatement(block) => {
-                    let mut block = self.trans_block_statement(block, ctx);
-                    block.statements.push(
-                        Statement::ExpressionStatement(Box::new(ExpressionStatement {
+        let body = it.update.as_ref().map(|update| match &it.body {
+            oxc::ast::ast::Statement::BlockStatement(block) => {
+                let mut block = self.trans_block_statement(block, ctx);
+                block
+                    .statements
+                    .push(Statement::ExpressionStatement(Box::new(
+                        ExpressionStatement {
                             span: update.span().into(),
                             expression: self.trans_expression(update, ctx),
-                        }))
-                    );
-                    block
-                }
-                _ => {
-                    BlockStatement {
-                        span: it.span.into(),
-                        statements: vec![
-                            self.trans_statement(&it.body, ctx),
-                            Statement::ExpressionStatement(Box::new(ExpressionStatement {
-                                span: it.span.into(),
-                                expression: self.trans_expression(update, ctx)
-                            }))
-                        ],
-                    }
-                }
+                        },
+                    )));
+                block
             }
+            _ => BlockStatement {
+                span: it.span.into(),
+                statements: vec![
+                    self.trans_statement(&it.body, ctx),
+                    Statement::ExpressionStatement(Box::new(ExpressionStatement {
+                        span: it.span.into(),
+                        expression: self.trans_expression(update, ctx),
+                    })),
+                ],
+            },
         });
         let new_while = WhileStatement {
             span: it.span.into(),
-            test: it.test.as_ref().map(|x| self.trans_expression(x, ctx)).unwrap_or(Expression::BooleanLiteral(BooleanLiteral {
-                span: it.span.into(),
-                value: true,
-            })),
-            body: body.map(|x| Statement::BlockStatement(Box::new(x))).unwrap_or(self.trans_statement(&it.body, ctx)),
+            test: it
+                .test
+                .as_ref()
+                .map(|x| self.trans_expression(x, ctx))
+                .unwrap_or(Expression::BooleanLiteral(BooleanLiteral {
+                    span: it.span.into(),
+                    value: true,
+                })),
+            body: body
+                .map(|x| Statement::BlockStatement(Box::new(x)))
+                .unwrap_or(self.trans_statement(&it.body, ctx)),
         };
         BlockStatement {
             span: it.span.into(),
             statements: if init.is_some() {
-                vec![init.unwrap(), Statement::WhileStatement(Box::new(new_while))]
+                vec![
+                    init.unwrap(),
+                    Statement::WhileStatement(Box::new(new_while)),
+                ]
             } else {
                 vec![Statement::WhileStatement(Box::new(new_while))]
             },
         }
     }
 
-    pub fn trans_while_statement(&mut self, it: &oxc::ast::ast::WhileStatement, ctx: &mut TraverseCtx<'a>) -> WhileStatement {
+    pub fn trans_while_statement(
+        &mut self,
+        it: &oxc::ast::ast::WhileStatement,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> WhileStatement {
         WhileStatement {
             span: it.span.into(),
             test: self.trans_expression(&it.test, ctx),
@@ -618,7 +915,11 @@ impl<'a> EcmaGeneralization {
     ///     i++;
     ///     if (!(i < 10)) break;
     /// }
-    pub fn trans_do_while_statement(&mut self, it: &oxc::ast::ast::DoWhileStatement, ctx: &mut TraverseCtx<'a>) -> WhileStatement {
+    pub fn trans_do_while_statement(
+        &mut self,
+        it: &oxc::ast::ast::DoWhileStatement,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> WhileStatement {
         // We will modify it to `while` and `if` related statement.
         let body = self.trans_statement(&it.body, ctx);
         let new_if = IfStatement {
@@ -642,7 +943,9 @@ impl<'a> EcmaGeneralization {
             body: match body {
                 Statement::BlockStatement(block) => {
                     let mut block = block;
-                    block.statements.push(Statement::IfStatement(Box::new(new_if)));
+                    block
+                        .statements
+                        .push(Statement::IfStatement(Box::new(new_if)));
                     Statement::BlockStatement(block)
                 }
                 _ => {
@@ -656,23 +959,38 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-
-    pub fn trans_return_statement(&mut self, it: &oxc::ast::ast::ReturnStatement, ctx: &mut TraverseCtx<'a>) -> ReturnStatement {
+    pub fn trans_return_statement(
+        &mut self,
+        it: &oxc::ast::ast::ReturnStatement,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ReturnStatement {
         ReturnStatement {
             span: it.span.into(),
             argument: it.argument.as_ref().map(|x| self.trans_expression(x, ctx)),
         }
     }
 
-    pub fn trans_variable_declaration(&mut self, it: &oxc::ast::ast::VariableDeclaration, ctx: &mut TraverseCtx<'a>) -> VariableDeclaration {
+    pub fn trans_variable_declaration(
+        &mut self,
+        it: &oxc::ast::ast::VariableDeclaration,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> VariableDeclaration {
         VariableDeclaration {
             span: it.span.into(),
             kind: it.kind.into(),
-            declarations: it.declarations.iter().map(|x| self.trans_variable_declarator(x, ctx)).collect::<Vec<_>>(),
+            declarations: it
+                .declarations
+                .iter()
+                .map(|x| self.trans_variable_declarator(x, ctx))
+                .collect::<Vec<_>>(),
         }
     }
 
-    pub fn trans_variable_declarator(&mut self, it: &oxc::ast::ast::VariableDeclarator, ctx: &mut TraverseCtx<'a>) -> VariableDeclarator {
+    pub fn trans_variable_declarator(
+        &mut self,
+        it: &oxc::ast::ast::VariableDeclarator,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> VariableDeclarator {
         VariableDeclarator {
             span: it.span.into(),
             init: it.init.as_ref().map(|x| self.trans_expression(x, ctx)),
@@ -680,24 +998,46 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_binding_pattern(&mut self, it: &oxc::ast::ast::BindingPattern, ctx: &mut TraverseCtx<'a>) -> BindingPattern {
+    pub fn trans_binding_pattern(
+        &mut self,
+        it: &oxc::ast::ast::BindingPattern,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> BindingPattern {
         BindingPattern {
             kind: match &it.kind {
-                oxc::ast::ast::BindingPatternKind::BindingIdentifier(it) => BindingPatternKind::BindingIdentifier(Box::from(Self::trans_binding_identifier(it))),
-                oxc::ast::ast::BindingPatternKind::AssignmentPattern(it) => BindingPatternKind::AssignmentPattern(Box::from(self.trans_assignment_pattern(it, ctx))),
-                _ => unimplemented!("Destructuring is not generalized. Please wait Oxc implements its transformation to simple assignment.")
-            }
+                oxc::ast::ast::BindingPatternKind::BindingIdentifier(it) => {
+                    BindingPatternKind::BindingIdentifier(Box::from(
+                        Self::trans_binding_identifier(it),
+                    ))
+                }
+                oxc::ast::ast::BindingPatternKind::AssignmentPattern(it) => {
+                    BindingPatternKind::AssignmentPattern(Box::from(
+                        self.trans_assignment_pattern(it, ctx),
+                    ))
+                }
+                _ => unimplemented!(
+                    "Destructuring is not generalized. Please wait Oxc implements its transformation to simple assignment."
+                ),
+            },
         }
     }
 
-    pub fn trans_binding_rest_element(&mut self, it: &oxc::ast::ast::BindingRestElement, ctx: &mut TraverseCtx<'a>) -> BindingRestElement {
+    pub fn trans_binding_rest_element(
+        &mut self,
+        it: &oxc::ast::ast::BindingRestElement,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> BindingRestElement {
         BindingRestElement {
             span: it.span.into(),
             argument: self.trans_binding_pattern(&it.argument, ctx),
         }
     }
 
-    pub fn trans_assignment_pattern(&mut self, it: &oxc::ast::ast::AssignmentPattern, ctx: &mut TraverseCtx<'a>) -> AssignmentPattern {
+    pub fn trans_assignment_pattern(
+        &mut self,
+        it: &oxc::ast::ast::AssignmentPattern,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> AssignmentPattern {
         AssignmentPattern {
             span: it.span.into(),
             left: self.trans_binding_pattern(&it.left, ctx),
@@ -705,31 +1045,72 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_array_assignment_target(&mut self, it: &oxc::ast::ast::ArrayAssignmentTarget, ctx: &mut TraverseCtx<'a>) -> ArrayAssignmentTarget {
+    pub fn trans_array_assignment_target(
+        &mut self,
+        it: &oxc::ast::ast::ArrayAssignmentTarget,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ArrayAssignmentTarget {
         ArrayAssignmentTarget {
             span: it.span.into(),
-            elements: it.elements.iter().map(|x| x.as_ref().map(|y| self.trans_assignment_target_maybe_default(y, ctx))).collect::<Vec<_>>(),
-            rest: it.rest.as_ref().map(|x| self.trans_assignment_target_rest(x, ctx)),
+            elements: it
+                .elements
+                .iter()
+                .map(|x| {
+                    x.as_ref()
+                        .map(|y| self.trans_assignment_target_maybe_default(y, ctx))
+                })
+                .collect::<Vec<_>>(),
+            rest: it
+                .rest
+                .as_ref()
+                .map(|x| self.trans_assignment_target_rest(x, ctx)),
             trailing_comma: it.trailing_comma.is_some(),
         }
     }
 
-    pub fn trans_object_assignment_target(&mut self, it: &oxc::ast::ast::ObjectAssignmentTarget, ctx: &mut TraverseCtx<'a>) -> ObjectAssignmentTarget {
+    pub fn trans_object_assignment_target(
+        &mut self,
+        it: &oxc::ast::ast::ObjectAssignmentTarget,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ObjectAssignmentTarget {
         ObjectAssignmentTarget {
             span: it.span.into(),
-            properties: it.properties.iter().map(|x| self.trans_assignment_target_property(x, ctx)).collect::<Vec<_>>(),
-            rest: it.rest.as_ref().map(|x| self.trans_assignment_target_rest(x, ctx)),
+            properties: it
+                .properties
+                .iter()
+                .map(|x| self.trans_assignment_target_property(x, ctx))
+                .collect::<Vec<_>>(),
+            rest: it
+                .rest
+                .as_ref()
+                .map(|x| self.trans_assignment_target_rest(x, ctx)),
         }
     }
 
-    pub fn trans_assignment_target_property(&mut self, it: &oxc::ast::ast::AssignmentTargetProperty, ctx: &mut TraverseCtx<'a>) -> AssignmentTargetProperty {
+    pub fn trans_assignment_target_property(
+        &mut self,
+        it: &oxc::ast::ast::AssignmentTargetProperty,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> AssignmentTargetProperty {
         match it {
-            oxc::ast::ast::AssignmentTargetProperty::AssignmentTargetPropertyIdentifier(it) => AssignmentTargetProperty::AssignmentTargetPropertyIdentifier(Box::new(self.trans_assignment_target_property_identifier(it, ctx))),
-            oxc::ast::ast::AssignmentTargetProperty::AssignmentTargetPropertyProperty(it) => AssignmentTargetProperty::AssignmentTargetPropertyProperty(Box::new(self.trans_assignment_target_property_property(it, ctx)))
+            oxc::ast::ast::AssignmentTargetProperty::AssignmentTargetPropertyIdentifier(it) => {
+                AssignmentTargetProperty::AssignmentTargetPropertyIdentifier(Box::new(
+                    self.trans_assignment_target_property_identifier(it, ctx),
+                ))
+            }
+            oxc::ast::ast::AssignmentTargetProperty::AssignmentTargetPropertyProperty(it) => {
+                AssignmentTargetProperty::AssignmentTargetPropertyProperty(Box::new(
+                    self.trans_assignment_target_property_property(it, ctx),
+                ))
+            }
         }
     }
 
-    pub fn trans_assignment_target_property_identifier(&mut self, it: &oxc::ast::ast::AssignmentTargetPropertyIdentifier, ctx: &mut TraverseCtx<'a>) -> AssignmentTargetPropertyIdentifier {
+    pub fn trans_assignment_target_property_identifier(
+        &mut self,
+        it: &oxc::ast::ast::AssignmentTargetPropertyIdentifier,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> AssignmentTargetPropertyIdentifier {
         AssignmentTargetPropertyIdentifier {
             span: it.span.into(),
             binding: self.trans_identifier_reference(&it.binding, ctx),
@@ -737,7 +1118,11 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_assignment_target_property_property(&mut self, it: &oxc::ast::ast::AssignmentTargetPropertyProperty, ctx: &mut TraverseCtx<'a>) -> AssignmentTargetPropertyProperty {
+    pub fn trans_assignment_target_property_property(
+        &mut self,
+        it: &oxc::ast::ast::AssignmentTargetPropertyProperty,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> AssignmentTargetPropertyProperty {
         AssignmentTargetPropertyProperty {
             span: it.span.into(),
             name: self.trans_expression(it.name.as_expression().unwrap(), ctx),
@@ -745,59 +1130,125 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_assignment_target(&mut self, it: &oxc::ast::ast::AssignmentTarget, ctx: &mut TraverseCtx<'a>) -> AssignmentTarget {
-        use oxc::ast::ast::{AssignmentTarget as OxcAssignmentTarget};
+    pub fn trans_assignment_target(
+        &mut self,
+        it: &oxc::ast::ast::AssignmentTarget,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> AssignmentTarget {
+        use oxc::ast::ast::AssignmentTarget as OxcAssignmentTarget;
         match it {
-            OxcAssignmentTarget::AssignmentTargetIdentifier(it) => AssignmentTarget::AssignmentTargetIdentifier(self.trans_identifier_reference(it, ctx)),
-            OxcAssignmentTarget::ArrayAssignmentTarget(it) => AssignmentTarget::ArrayAssignmentTarget(Box::from(self.trans_array_assignment_target(it, ctx))),
-            OxcAssignmentTarget::ObjectAssignmentTarget(it) => AssignmentTarget::ObjectAssignmentTarget(Box::from(self.trans_object_assignment_target(it, ctx))),
-            OxcAssignmentTarget::ComputedMemberExpression(it) => AssignmentTarget::MemberExpression(Box::from(self.trans_computed_member_expression(it, ctx))),
-            OxcAssignmentTarget::StaticMemberExpression(it) => AssignmentTarget::MemberExpression(Box::from(self.trans_static_member_expression(it, ctx))),
-            OxcAssignmentTarget::PrivateFieldExpression(it) => AssignmentTarget::MemberExpression(Box::from(self.trans_private_field_expression(it, ctx))),
+            OxcAssignmentTarget::AssignmentTargetIdentifier(it) => {
+                AssignmentTarget::AssignmentTargetIdentifier(
+                    self.trans_identifier_reference(it, ctx),
+                )
+            }
+            OxcAssignmentTarget::ArrayAssignmentTarget(it) => {
+                AssignmentTarget::ArrayAssignmentTarget(Box::from(
+                    self.trans_array_assignment_target(it, ctx),
+                ))
+            }
+            OxcAssignmentTarget::ObjectAssignmentTarget(it) => {
+                AssignmentTarget::ObjectAssignmentTarget(Box::from(
+                    self.trans_object_assignment_target(it, ctx),
+                ))
+            }
+            OxcAssignmentTarget::ComputedMemberExpression(it) => {
+                AssignmentTarget::MemberExpression(Box::from(
+                    self.trans_computed_member_expression(it, ctx),
+                ))
+            }
+            OxcAssignmentTarget::StaticMemberExpression(it) => AssignmentTarget::MemberExpression(
+                Box::from(self.trans_static_member_expression(it, ctx)),
+            ),
+            OxcAssignmentTarget::PrivateFieldExpression(it) => AssignmentTarget::MemberExpression(
+                Box::from(self.trans_private_field_expression(it, ctx)),
+            ),
             _ => unreachable!(),
         }
     }
 
-    pub fn trans_simple_assignment_target(&mut self, it: &oxc::ast::ast::SimpleAssignmentTarget, ctx: &mut TraverseCtx<'a>) -> AssignmentTarget {
-        use oxc::ast::ast::{SimpleAssignmentTarget as OxcAssignmentTarget};
+    pub fn trans_simple_assignment_target(
+        &mut self,
+        it: &oxc::ast::ast::SimpleAssignmentTarget,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> AssignmentTarget {
+        use oxc::ast::ast::SimpleAssignmentTarget as OxcAssignmentTarget;
         match it {
-            OxcAssignmentTarget::AssignmentTargetIdentifier(it) => AssignmentTarget::AssignmentTargetIdentifier(self.trans_identifier_reference(it, ctx)),
-            OxcAssignmentTarget::ComputedMemberExpression(it) => AssignmentTarget::MemberExpression(Box::from(self.trans_computed_member_expression(it, ctx))),
-            OxcAssignmentTarget::StaticMemberExpression(it) => AssignmentTarget::MemberExpression(Box::from(self.trans_static_member_expression(it, ctx))),
-            OxcAssignmentTarget::PrivateFieldExpression(it) => AssignmentTarget::MemberExpression(Box::from(self.trans_private_field_expression(it, ctx))),
+            OxcAssignmentTarget::AssignmentTargetIdentifier(it) => {
+                AssignmentTarget::AssignmentTargetIdentifier(
+                    self.trans_identifier_reference(it, ctx),
+                )
+            }
+            OxcAssignmentTarget::ComputedMemberExpression(it) => {
+                AssignmentTarget::MemberExpression(Box::from(
+                    self.trans_computed_member_expression(it, ctx),
+                ))
+            }
+            OxcAssignmentTarget::StaticMemberExpression(it) => AssignmentTarget::MemberExpression(
+                Box::from(self.trans_static_member_expression(it, ctx)),
+            ),
+            OxcAssignmentTarget::PrivateFieldExpression(it) => AssignmentTarget::MemberExpression(
+                Box::from(self.trans_private_field_expression(it, ctx)),
+            ),
             _ => unreachable!(),
         }
     }
 
-    pub fn trans_simple_assignment_target_to_expression(&mut self, it: &oxc::ast::ast::SimpleAssignmentTarget, ctx: &mut TraverseCtx<'a>) -> Expression {
-        use oxc::ast::ast::{SimpleAssignmentTarget as OxcAssignmentTarget};
+    pub fn trans_simple_assignment_target_to_expression(
+        &mut self,
+        it: &oxc::ast::ast::SimpleAssignmentTarget,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> Expression {
+        use oxc::ast::ast::SimpleAssignmentTarget as OxcAssignmentTarget;
         match it {
-            OxcAssignmentTarget::AssignmentTargetIdentifier(it) => Expression::Identifier(self.trans_identifier_reference(it, ctx)),
-            OxcAssignmentTarget::ComputedMemberExpression(it) => Expression::MemberExpression(Box::from(self.trans_computed_member_expression(it, ctx))),
-            OxcAssignmentTarget::StaticMemberExpression(it) => Expression::MemberExpression(Box::from(self.trans_static_member_expression(it, ctx))),
-            _ => unimplemented!()
+            OxcAssignmentTarget::AssignmentTargetIdentifier(it) => {
+                Expression::Identifier(self.trans_identifier_reference(it, ctx))
+            }
+            OxcAssignmentTarget::ComputedMemberExpression(it) => Expression::MemberExpression(
+                Box::from(self.trans_computed_member_expression(it, ctx)),
+            ),
+            OxcAssignmentTarget::StaticMemberExpression(it) => Expression::MemberExpression(
+                Box::from(self.trans_static_member_expression(it, ctx)),
+            ),
+            _ => unimplemented!(),
         }
     }
 
-    pub fn trans_assignment_target_maybe_default(&mut self, it: &oxc::ast::ast::AssignmentTargetMaybeDefault, ctx: &mut TraverseCtx<'a>) -> AssignmentTarget {
+    pub fn trans_assignment_target_maybe_default(
+        &mut self,
+        it: &oxc::ast::ast::AssignmentTargetMaybeDefault,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> AssignmentTarget {
         match it {
-            oxc::ast::ast::AssignmentTargetMaybeDefault::AssignmentTargetWithDefault(it) => AssignmentTarget::AssignmentTargetWithDefault(Box::from(AssignmentTargetWithDefault {
-                span: it.span.into(),
-                binding: self.trans_assignment_target(&it.binding, ctx),
-                init: self.trans_expression(&it.init, ctx),
-            })),
-            _ => self.trans_assignment_target(it.as_assignment_target().unwrap(), ctx)
+            oxc::ast::ast::AssignmentTargetMaybeDefault::AssignmentTargetWithDefault(it) => {
+                AssignmentTarget::AssignmentTargetWithDefault(Box::from(
+                    AssignmentTargetWithDefault {
+                        span: it.span.into(),
+                        binding: self.trans_assignment_target(&it.binding, ctx),
+                        init: self.trans_expression(&it.init, ctx),
+                    },
+                ))
+            }
+            _ => self.trans_assignment_target(it.as_assignment_target().unwrap(), ctx),
         }
     }
 
-    pub fn trans_assignment_target_rest(&mut self, it: &oxc::ast::ast::AssignmentTargetRest, ctx: &mut TraverseCtx<'a>) -> AssignmentTargetRest {
+    pub fn trans_assignment_target_rest(
+        &mut self,
+        it: &oxc::ast::ast::AssignmentTargetRest,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> AssignmentTargetRest {
         AssignmentTargetRest {
             span: it.span.into(),
             target: self.trans_assignment_target(&it.target, ctx),
         }
     }
 
-    pub fn trans_computed_member_expression(&mut self, it: &oxc::ast::ast::ComputedMemberExpression, ctx: &mut TraverseCtx<'a>) -> MemberExpression {
+    pub fn trans_computed_member_expression(
+        &mut self,
+        it: &oxc::ast::ast::ComputedMemberExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> MemberExpression {
         MemberExpression {
             span: it.span.into(),
             object: self.trans_expression(&it.object, ctx),
@@ -807,7 +1258,11 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_static_member_expression(&mut self, it: &oxc::ast::ast::StaticMemberExpression, ctx: &mut TraverseCtx<'a>) -> MemberExpression {
+    pub fn trans_static_member_expression(
+        &mut self,
+        it: &oxc::ast::ast::StaticMemberExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> MemberExpression {
         MemberExpression {
             span: it.span.into(),
             object: self.trans_expression(&it.object, ctx),
@@ -817,7 +1272,11 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_private_field_expression(&mut self, it: &oxc::ast::ast::PrivateFieldExpression, ctx: &mut TraverseCtx<'a>) -> MemberExpression {
+    pub fn trans_private_field_expression(
+        &mut self,
+        it: &oxc::ast::ast::PrivateFieldExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> MemberExpression {
         MemberExpression {
             span: it.span.into(),
             object: self.trans_expression(&it.object, ctx),
@@ -827,16 +1286,32 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_for_statement_left(&mut self, it: &oxc::ast::ast::ForStatementLeft, ctx: &mut TraverseCtx<'a>) -> Expression {
+    pub fn trans_for_statement_left(
+        &mut self,
+        it: &oxc::ast::ast::ForStatementLeft,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> Expression {
         use oxc::ast::ast::ForStatementLeft;
         match it {
-            ForStatementLeft::VariableDeclaration(it) => Expression::VariableDeclaration(Box::from(self.trans_variable_declaration(it, ctx))),
-            expr @ match_member_expression!(ForStatementLeft) => Expression::MemberExpression(Box::from(self.trans_member_expression(expr.as_member_expression().unwrap(), ctx))),
-            target @ match_assignment_target!(ForStatementLeft) => Expression::AssignmentTarget(Box::from(self.trans_assignment_target(target.as_assignment_target().unwrap(), ctx))),
+            ForStatementLeft::VariableDeclaration(it) => {
+                Expression::VariableDeclaration(Box::from(self.trans_variable_declaration(it, ctx)))
+            }
+            expr @ match_member_expression!(ForStatementLeft) => Expression::MemberExpression(
+                Box::from(self.trans_member_expression(expr.as_member_expression().unwrap(), ctx)),
+            ),
+            target @ match_assignment_target!(ForStatementLeft) => {
+                Expression::AssignmentTarget(Box::from(
+                    self.trans_assignment_target(target.as_assignment_target().unwrap(), ctx),
+                ))
+            }
         }
     }
 
-    pub fn trans_for_in_statement(&mut self, it: &oxc::ast::ast::ForInStatement, ctx: &mut TraverseCtx<'a>) -> ForStatement {
+    pub fn trans_for_in_statement(
+        &mut self,
+        it: &oxc::ast::ast::ForInStatement,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ForStatement {
         ForStatement {
             span: it.span.into(),
             iteration: false,
@@ -847,7 +1322,11 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_for_of_statement(&mut self, it: &oxc::ast::ast::ForOfStatement, ctx: &mut TraverseCtx<'a>) -> ForStatement {
+    pub fn trans_for_of_statement(
+        &mut self,
+        it: &oxc::ast::ast::ForOfStatement,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ForStatement {
         ForStatement {
             span: it.span.into(),
             iteration: true,
@@ -858,7 +1337,11 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_if_statement(&mut self, it: &oxc::ast::ast::IfStatement, ctx: &mut TraverseCtx<'a>) -> IfStatement {
+    pub fn trans_if_statement(
+        &mut self,
+        it: &oxc::ast::ast::IfStatement,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> IfStatement {
         IfStatement {
             span: it.span.into(),
             test: self.trans_expression(&it.test, ctx),
@@ -867,29 +1350,57 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_member_expression(&mut self, it: &oxc::ast::ast::MemberExpression, ctx: &mut TraverseCtx<'a>) -> MemberExpression {
+    pub fn trans_member_expression(
+        &mut self,
+        it: &oxc::ast::ast::MemberExpression,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> MemberExpression {
         match it {
-            oxc::ast::ast::MemberExpression::ComputedMemberExpression(it) => self.trans_computed_member_expression(it, ctx),
-            oxc::ast::ast::MemberExpression::StaticMemberExpression(it) => self.trans_static_member_expression(it, ctx),
-            oxc::ast::ast::MemberExpression::PrivateFieldExpression(it) => self.trans_private_field_expression(it, ctx),
+            oxc::ast::ast::MemberExpression::ComputedMemberExpression(it) => {
+                self.trans_computed_member_expression(it, ctx)
+            }
+            oxc::ast::ast::MemberExpression::StaticMemberExpression(it) => {
+                self.trans_static_member_expression(it, ctx)
+            }
+            oxc::ast::ast::MemberExpression::PrivateFieldExpression(it) => {
+                self.trans_private_field_expression(it, ctx)
+            }
         }
     }
 
-
-    pub fn trans_formal_parameter(&mut self, it: &oxc::ast::ast::FormalParameter, ctx: &mut TraverseCtx<'a>) -> FormalParameter {
+    pub fn trans_formal_parameter(
+        &mut self,
+        it: &oxc::ast::ast::FormalParameter,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> FormalParameter {
         FormalParameter {
             span: it.span.into(),
             id: self.trans_binding_pattern(&it.pattern, ctx),
-            decorators: it.decorators.iter().map(|x| self.trans_decorator(x, ctx)).collect::<Vec<_>>(),
+            decorators: it
+                .decorators
+                .iter()
+                .map(|x| self.trans_decorator(x, ctx))
+                .collect::<Vec<_>>(),
         }
     }
 
-    pub fn trans_formal_parameters(&mut self, it: &oxc::ast::ast::FormalParameters, ctx: &mut TraverseCtx<'a>) -> FormalParameters {
+    pub fn trans_formal_parameters(
+        &mut self,
+        it: &oxc::ast::ast::FormalParameters,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> FormalParameters {
         FormalParameters {
             span: it.span.into(),
             kind: it.kind.into(),
-            items: it.items.iter().map(|x| self.trans_formal_parameter(x, ctx)).collect::<Vec<_>>(),
-            rest: it.rest.as_ref().map(|x| self.trans_binding_rest_element(x, ctx)),
+            items: it
+                .items
+                .iter()
+                .map(|x| self.trans_formal_parameter(x, ctx))
+                .collect::<Vec<_>>(),
+            rest: it
+                .rest
+                .as_ref()
+                .map(|x| self.trans_binding_rest_element(x, ctx)),
         }
     }
 
@@ -900,12 +1411,191 @@ impl<'a> EcmaGeneralization {
         }
     }
 
-    pub fn trans_program(&mut self, it: &oxc::ast::ast::Program, ctx: &mut TraverseCtx<'a>) -> Program {
+    pub fn trans_program(
+        &mut self,
+        it: &oxc::ast::ast::Program,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> Program {
         Program {
             span: it.span.into(),
-            body: it.body.iter().map(|x| self.trans_statement(x, ctx)).collect::<Vec<_>>(),
-            directives: it.directives.iter().map(|x| Self::trans_directive(x)).collect::<Vec<_>>(),
+            body: it
+                .body
+                .iter()
+                .map(|x| self.trans_statement(x, ctx))
+                .collect::<Vec<_>>(),
+            directives: it
+                .directives
+                .iter()
+                .map(|x| Self::trans_directive(x))
+                .collect::<Vec<_>>(),
             hashbang: it.hashbang.as_ref().map(|x| Self::trans_hashbang(x)),
+        }
+    }
+
+    pub fn trans_import_declaration(
+        &mut self,
+        it: &oxc::ast::ast::ImportDeclaration,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ImportDeclaration {
+        ImportDeclaration {
+            span: it.span.into(),
+            specifiers: it.specifiers.as_ref().map(|specifier| {
+                specifier
+                    .iter()
+                    .map(|x| self.trans_import_declaration_specifier(x, ctx))
+                    .collect::<Vec<_>>()
+            }),
+            source: Self::trans_string_literal(&it.source),
+        }
+    }
+
+    pub fn trans_import_declaration_specifier(
+        &mut self,
+        it: &oxc::ast::ast::ImportDeclarationSpecifier,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ImportDeclarationSpecifier {
+        match it {
+            oxc::ast::ast::ImportDeclarationSpecifier::ImportSpecifier(it) => {
+                ImportDeclarationSpecifier::ImportSpecifier(Box::from(
+                    self.trans_import_specifier(it, ctx),
+                ))
+            }
+            oxc::ast::ast::ImportDeclarationSpecifier::ImportDefaultSpecifier(it) => {
+                ImportDeclarationSpecifier::ImportDefaultSpecifier(Box::from(
+                    self.trans_import_default_specifier(it),
+                ))
+            }
+            oxc::ast::ast::ImportDeclarationSpecifier::ImportNamespaceSpecifier(it) => {
+                ImportDeclarationSpecifier::ImportNamespaceSpecifier(Box::from(
+                    self.trans_import_namespace_specifier(it),
+                ))
+            }
+        }
+    }
+
+    pub fn trans_import_specifier(
+        &mut self,
+        it: &oxc::ast::ast::ImportSpecifier,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ImportSpecifier {
+        ImportSpecifier {
+            span: it.span.into(),
+            imported: self.trans_module_export_name(&it.imported, ctx),
+            local: Self::trans_binding_identifier(&it.local),
+        }
+    }
+
+    pub fn trans_import_default_specifier(
+        &mut self,
+        it: &oxc::ast::ast::ImportDefaultSpecifier,
+    ) -> ImportDefaultSpecifier {
+        ImportDefaultSpecifier {
+            span: it.span.into(),
+            local: Self::trans_binding_identifier(&it.local),
+        }
+    }
+
+    pub fn trans_import_namespace_specifier(
+        &mut self,
+        it: &oxc::ast::ast::ImportNamespaceSpecifier,
+    ) -> ImportNamespaceSpecifier {
+        ImportNamespaceSpecifier {
+            span: it.span.into(),
+            local: Self::trans_binding_identifier(&it.local),
+        }
+    }
+
+    pub fn trans_export_all_declaration(
+        &mut self,
+        it: &oxc::ast::ast::ExportAllDeclaration,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ExportAllDeclaration {
+        ExportAllDeclaration {
+            span: it.span.into(),
+            exported: it
+                .exported
+                .as_ref()
+                .map(|x| self.trans_module_export_name(x, ctx)),
+            source: Self::trans_string_literal(&it.source),
+        }
+    }
+
+    pub fn trans_export_default_declaration(
+        &mut self,
+        it: &oxc::ast::ast::ExportDefaultDeclaration,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ExportDefaultDeclaration {
+        use oxc::ast::ast::ExportDefaultDeclarationKind;
+        ExportDefaultDeclaration {
+            span: it.span.into(),
+            declaration: match &it.declaration {
+                expr @ match_expression!(ExportDefaultDeclarationKind) => Box::from(Left(
+                    self.trans_expression(expr.as_expression().unwrap(), ctx),
+                )),
+                ExportDefaultDeclarationKind::FunctionDeclaration(it) => {
+                    Box::from(Right(Statement::FunctionDeclaration(Box::new(
+                        self.trans_function_declaration(it, ctx),
+                    ))))
+                }
+                _ => unimplemented!()
+            },
+            local: self.trans_module_export_name(&it.exported, ctx),
+        }
+    }
+
+    pub fn trans_export_named_declaration(
+        &mut self,
+        it: &oxc::ast::ast::ExportNamedDeclaration,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ExportNamedDeclaration {
+        ExportNamedDeclaration {
+            span: it.span.into(),
+            declaration: it.declaration.as_ref().map(|x| match x {
+                oxc::ast::ast::Declaration::VariableDeclaration(var) => Statement::VariableDeclaration(Box::from(
+                    self.trans_variable_declaration(var, ctx),
+                )),
+                oxc::ast::ast::Declaration::FunctionDeclaration(func) => Statement::FunctionDeclaration(
+                    Box::from(self.trans_function_declaration(func, ctx)),
+                ),
+                _ => unimplemented!()
+            }),
+            specifiers: it
+                .specifiers
+                .iter()
+                .map(|x| self.trans_export_specifier(x, ctx))
+                .collect::<Vec<_>>(),
+            source: it.source.as_ref().map(|x| Self::trans_string_literal(x)),
+        }
+    }
+
+    pub fn trans_export_specifier(
+        &mut self,
+        it: &oxc::ast::ast::ExportSpecifier,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> ExportSpecifier {
+        ExportSpecifier {
+            span: it.span.into(),
+            exported: self.trans_module_export_name(&it.exported, ctx),
+            local: self.trans_module_export_name(&it.local, ctx),
+        }
+    }
+
+    pub fn trans_module_export_name(
+        &mut self,
+        it: &oxc::ast::ast::ModuleExportName,
+        ctx: &mut TraverseCtx<'a>,
+    ) -> Expression {
+        use oxc::ast::ast::ModuleExportName;
+        match it {
+            ModuleExportName::IdentifierName(it) => {
+                Expression::Identifier(Self::trans_identifier_name(it))
+            }
+            ModuleExportName::IdentifierReference(it) => {
+                Expression::Identifier(self.trans_identifier_reference(it, ctx))
+            }
+            ModuleExportName::StringLiteral(it) => {
+                Expression::StringLiteral(Self::trans_string_literal(it))
+            }
         }
     }
 }

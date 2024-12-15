@@ -302,6 +302,7 @@ name = "iris_ecma"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "either",
  "iris_low_level_ir",
  "nonmax",
  "oxc",
@@ -327,6 +328,7 @@ dependencies = [
 name = "iris_low_level_ir"
 version = "0.1.0"
 dependencies = [
+ "either",
  "oxc",
  "ruff",
 ]

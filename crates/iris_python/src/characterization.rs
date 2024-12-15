@@ -3,15 +3,15 @@ use ruff::ast::ModModule;
 use ruff::ast::name::Name;
 use ruff::ast::*;
 use ruff::span::{TextRange, TextSize};
-use std::str::FromStr;
 
 pub struct PythonCharacterization {
     pub ast: Option<ModModule>,
+    pub imported_modules: Vec<String>
 }
 
 impl PythonCharacterization {
     pub fn new() -> Self {
-        Self { ast: None }
+        Self { ast: None, imported_modules: vec![] }
     }
 
     pub fn build(&mut self, program: Program) {
@@ -112,7 +112,7 @@ impl PythonCharacterization {
             Expression::ParenthesizedExpression(parenthesized_expression) => {
                 self.trans_expression(&parenthesized_expression.expression)
             }
-            Expression::Identifier(identifier) => Expr::Name(self.trans_identifier(identifier)),
+            Expression::Identifier(identifier) => self.trans_identifier(identifier),
             Expression::AwaitExpression(await_expression) => {
                 self.trans_await_expression(await_expression)
             }
@@ -441,11 +441,66 @@ impl PythonCharacterization {
     pub fn trans_identifier(
         &mut self,
         identifier: &iris_low_level_ir::shared::Identifier,
-    ) -> ExprName {
-        ExprName {
-            range: identifier.span.clone().into(),
-            id: Name::from(identifier.name.clone()),
-            ctx: ExprContext::Load,
+    ) -> Expr {
+        match identifier.name.as_str() {
+            "undefined" => {
+                Expr::NoneLiteral(ExprNoneLiteral {
+                    range: identifier.span.clone().into(),
+                })
+            }
+            "NaN" => {
+                Expr::Call(ExprCall {
+                    range: identifier.span.clone().into(),
+                    func: Box::new(Expr::Name(ExprName {
+                        range: identifier.span.clone().into(),
+                        id: "float".into(),
+                        ctx: ExprContext::Load,
+                    })),
+                    arguments: Arguments {
+                        range: identifier.span.clone().into(),
+                        args: vec![Expr::StringLiteral(ExprStringLiteral {
+                            range: identifier.span.clone().into(),
+                            value: StringLiteralValue::single(ruff::ast::StringLiteral {
+                                range: identifier.span.clone().into(),
+                                value: "nan".into(),
+                                flags: StringLiteralPrefix::Empty.into(),
+                            }),
+                        })]
+                        .into_boxed_slice(),
+                        keywords: vec![].into_boxed_slice(),
+                    },
+                })
+            }
+            "Infinity" => {
+                Expr::Call(ExprCall {
+                    range: identifier.span.clone().into(),
+                    func: Box::new(Expr::Name(ExprName {
+                        range: identifier.span.clone().into(),
+                        id: "float".into(),
+                        ctx: ExprContext::Load,
+                    })),
+                    arguments: Arguments {
+                        range: identifier.span.clone().into(),
+                        args: vec![Expr::StringLiteral(ExprStringLiteral {
+                            range: identifier.span.clone().into(),
+                            value: StringLiteralValue::single(ruff::ast::StringLiteral {
+                                range: identifier.span.clone().into(),
+                                value: "inf".into(),
+                                flags: StringLiteralPrefix::Empty.into(),
+                            }),
+                        })]
+                        .into_boxed_slice(),
+                        keywords: vec![].into_boxed_slice(),
+                    },
+                })
+            }
+            _ => {
+                Expr::Name(ExprName {
+                    range: identifier.span.clone().into(),
+                    id: Name::from(identifier.name.clone()),
+                    ctx: ExprContext::Load,
+                })
+            }
         }
     }
 
@@ -594,7 +649,11 @@ impl PythonCharacterization {
     pub fn trans_assignment_target(&mut self, assignment_target: &AssignmentTarget) -> Expr {
         match assignment_target {
             AssignmentTarget::AssignmentTargetIdentifier(identifier) => {
-                Expr::Name(self.trans_identifier(identifier))
+                Expr::Name(ExprName {
+                    range: identifier.span.clone().into(),
+                    id: Name::from(identifier.name.clone()),
+                    ctx: ExprContext::Load,
+                })
             }
             AssignmentTarget::MemberExpression(member_expression) => {
                 self.trans_member_expression(member_expression)
@@ -772,8 +831,12 @@ impl PythonCharacterization {
             Stmt::Assign(StmtAssign {
                 range: variable_declarator.span.clone().into(),
                 targets: vec![match &variable_declarator.id.kind {
-                    BindingPatternKind::BindingIdentifier(idt) => {
-                        Expr::Name(self.trans_identifier(&idt))
+                    BindingPatternKind::BindingIdentifier(identifier) => {
+                        Expr::Name(ExprName {
+                            range: identifier.span.clone().into(),
+                            id: Name::from(identifier.name.clone()),
+                            ctx: ExprContext::Load,
+                        })
                     }
                     _ => unimplemented!(),
                 }],

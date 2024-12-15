@@ -8,3 +8,4 @@ version.workspace = true
 [dependencies]
 oxc = { workspace = true }
 ruff = { workspace = true }
+either = { workspace = true }

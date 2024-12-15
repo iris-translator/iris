@@ -8,6 +8,7 @@ mod module_declarations;
 mod program;
 mod assignment;
 mod operator;
+mod module_source;
 
 pub use expressions::*;
 pub use literals::*;
@@ -15,7 +16,7 @@ pub use span::*;
 pub use statements::*;
 pub use declarations::*;
 pub use derivatives::*;
-// pub use module_declarations::*;/
+pub use module_declarations::*;
 pub use program::*;
 pub use assignment::*;
 pub use operator::*;

@@ -1,6 +1,8 @@
 mod generalization;
 mod lower;
 mod characterization;
+mod resolve;
+
 pub use generalization::EcmaGeneralization;
 pub use lower::EcmaLower;
 
