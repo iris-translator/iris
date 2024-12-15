@@ -64,6 +64,16 @@ impl PythonCharacterization {
             Statement::VariableDeclaration(variable_declaration) => {
                 self.trans_variable_declaration(variable_declaration)
             }
+            Statement::ImportDeclaration(import_declaration) => {
+                self.trans_import_declaration(import_declaration)
+            }
+            Statement::ExportNamedDeclaration(export_named_declaration) => {
+                self.trans_export_named_declaration(export_named_declaration)
+            },
+            Statement::ExportDefaultDeclaration(export_default_declaration) => {
+                self.trans_export_default_declaration(export_default_declaration)
+            }
+            Statement::ExportAllDeclaration(_) => {vec![]}
             _ => unimplemented!("Unsupported statement: {:?}", statement),
         }
     }
@@ -844,4 +854,85 @@ impl PythonCharacterization {
             })
         })
     }
+
+    pub fn trans_import_declaration(&mut self, import_declaration: &ImportDeclaration) -> Vec<Stmt> {
+        let (module, level) = import_declaration.source.as_python();
+        import_declaration.specifiers.as_ref().map(|specifiers| {
+            specifiers.iter().map(|specifier| {
+                match specifier {
+                    ImportDeclarationSpecifier::ImportSpecifier(import) => {
+                        Stmt::ImportFrom(StmtImportFrom {
+                            range: import.span.clone().into(),
+                            names: vec![Alias {
+                                range: import.span.clone().into(),
+                                name: match &import.imported {
+                                    Expression::Identifier(idt) => Self::trans_identifier_to_identifier(idt),
+                                    _ => unimplemented!()
+                                },
+                                asname: Some(Self::trans_identifier_to_identifier(&import.local)),
+                            }],
+                            module: Some(Self::trans_identifier_to_identifier(&module)),
+                            level,
+                        })
+                    }
+                    ImportDeclarationSpecifier::ImportDefaultSpecifier(default) => {
+                        Stmt::ImportFrom(StmtImportFrom {
+                            range: default.span.clone().into(),
+                            names: vec![Alias {
+                                range: default.span.clone().into(),
+                                name: ruff::ast::Identifier {
+                                    id: Name::from("default".to_string()),
+                                    range: default.span.clone().into(),
+                                },
+                                asname: Some(Self::trans_identifier_to_identifier(&default.local)),
+                            }],
+                            module: Some(Self::trans_identifier_to_identifier(&module)),
+                            level,
+                        })
+                    }
+                    ImportDeclarationSpecifier::ImportNamespaceSpecifier(namespace) => {
+                        Stmt::ImportFrom(StmtImportFrom {
+                            range: namespace.span.clone().into(),
+                            names: vec![Alias {
+                                range: namespace.span.clone().into(),
+                                name: ruff::ast::Identifier {
+                                    id: Name::from("*".to_string()),
+                                    range: namespace.span.clone().into(),
+                                },
+                                asname: Some(Self::trans_identifier_to_identifier(&namespace.local)),
+                            }],
+                            module: Some(Self::trans_identifier_to_identifier(&module)),
+                            level,
+                        })
+                    }
+                }
+            }).collect::<Vec<_>>()
+        }).unwrap_or_default()
+    }
+
+    pub fn trans_export_named_declaration(
+        &mut self,
+        export_named_declaration: &ExportNamedDeclaration,
+    ) -> Vec<Stmt> {
+        if let Some(decl) = &export_named_declaration.declaration {
+            self.trans_statement(decl)
+        } else {
+            vec![]
+        }
+    }
+
+    pub fn trans_export_default_declaration(
+        &mut self,
+        export_default_declaration: &ExportDefaultDeclaration,
+    ) -> Vec<Stmt> {
+        if export_default_declaration.declaration.is_left() {
+            vec![self.trans_expression_statement(&ExpressionStatement {
+                span: export_default_declaration.span.clone(),
+                expression: export_default_declaration.declaration.clone().left().unwrap().clone(),
+            })]
+        } else {
+            self.trans_statement(&export_default_declaration.declaration.clone().right().unwrap())
+        }
+    }
+
 }

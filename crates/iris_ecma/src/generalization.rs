@@ -1,12 +1,10 @@
 use crate::toolchain::index::Idx;
 use crate::toolchain::span::SPAN;
 use crate::toolchain::traverse::{Traverse, TraverseCtx};
-use either::{Either, Left, Right};
+use either::{Left, Right};
 use iris_low_level_ir::shared::*;
-use oxc::allocator::{Allocator, CloneIn};
-use oxc::ast::{
-    match_assignment_target, match_declaration, match_expression, match_member_expression,
-};
+use oxc::allocator::Allocator;
+use oxc::ast::{match_assignment_target, match_expression, match_member_expression};
 use oxc::semantic::{ScopeTree, SymbolTable};
 use oxc::span::GetSpan;
 use oxc_traverse::traverse_mut;
@@ -344,10 +342,14 @@ impl<'a> EcmaGeneralization {
     ) -> Declaration {
         match it {
             oxc::ast::ast::Declaration::VariableDeclaration(it) => {
-                Declaration::VariableDeclaration(Box::from(self.trans_variable_declaration(it, ctx)))
+                Declaration::VariableDeclaration(Box::from(
+                    self.trans_variable_declaration(it, ctx),
+                ))
             }
             oxc::ast::ast::Declaration::FunctionDeclaration(it) => {
-                Declaration::FunctionDeclaration(Box::from(self.trans_function_declaration(it, ctx)))
+                Declaration::FunctionDeclaration(Box::from(
+                    self.trans_function_declaration(it, ctx),
+                ))
             }
             _ => unimplemented!(),
         }
@@ -744,6 +746,18 @@ impl<'a> EcmaGeneralization {
             }
             OxcStatement::FunctionDeclaration(it) => {
                 Statement::FunctionDeclaration(Box::new(self.trans_function_declaration(it, ctx)))
+            }
+            OxcStatement::ImportDeclaration(it) => {
+                Statement::ImportDeclaration(Box::new(self.trans_import_declaration(it, ctx)))
+            }
+            OxcStatement::ExportAllDeclaration(it) => {
+                Statement::ExportAllDeclaration(Box::new(self.trans_export_all_declaration(it, ctx)))
+            },
+            OxcStatement::ExportDefaultDeclaration(it) => {
+                Statement::ExportDefaultDeclaration(Box::new(self.trans_export_default_declaration(it, ctx)))
+            }
+            OxcStatement::ExportNamedDeclaration(it) => {
+                Statement::ExportNamedDeclaration(Box::new(self.trans_export_named_declaration(it, ctx)))
             }
             _ => unimplemented!(),
         }
@@ -1445,7 +1459,7 @@ impl<'a> EcmaGeneralization {
                     .map(|x| self.trans_import_declaration_specifier(x, ctx))
                     .collect::<Vec<_>>()
             }),
-            source: Self::trans_string_literal(&it.source),
+            source: ImportExportSource::from_ecma(it.source.value.to_string()),
         }
     }
 
@@ -1516,7 +1530,7 @@ impl<'a> EcmaGeneralization {
                 .exported
                 .as_ref()
                 .map(|x| self.trans_module_export_name(x, ctx)),
-            source: Self::trans_string_literal(&it.source),
+            source: ImportExportSource::from_ecma(it.source.value.to_string()),
         }
     }
 
@@ -1537,7 +1551,7 @@ impl<'a> EcmaGeneralization {
                         self.trans_function_declaration(it, ctx),
                     ))))
                 }
-                _ => unimplemented!()
+                _ => unimplemented!(),
             },
             local: self.trans_module_export_name(&it.exported, ctx),
         }
@@ -1551,20 +1565,27 @@ impl<'a> EcmaGeneralization {
         ExportNamedDeclaration {
             span: it.span.into(),
             declaration: it.declaration.as_ref().map(|x| match x {
-                oxc::ast::ast::Declaration::VariableDeclaration(var) => Statement::VariableDeclaration(Box::from(
-                    self.trans_variable_declaration(var, ctx),
-                )),
-                oxc::ast::ast::Declaration::FunctionDeclaration(func) => Statement::FunctionDeclaration(
-                    Box::from(self.trans_function_declaration(func, ctx)),
-                ),
-                _ => unimplemented!()
+                oxc::ast::ast::Declaration::VariableDeclaration(var) => {
+                    Statement::VariableDeclaration(Box::from(
+                        self.trans_variable_declaration(var, ctx),
+                    ))
+                }
+                oxc::ast::ast::Declaration::FunctionDeclaration(func) => {
+                    Statement::FunctionDeclaration(Box::from(
+                        self.trans_function_declaration(func, ctx),
+                    ))
+                }
+                _ => unimplemented!(),
             }),
             specifiers: it
                 .specifiers
                 .iter()
                 .map(|x| self.trans_export_specifier(x, ctx))
                 .collect::<Vec<_>>(),
-            source: it.source.as_ref().map(|x| Self::trans_string_literal(x)),
+            source: it
+                .source
+                .as_ref()
+                .map(|src| ImportExportSource::from_ecma(src.value.to_string())),
         }
     }
 

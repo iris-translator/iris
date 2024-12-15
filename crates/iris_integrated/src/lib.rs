@@ -38,6 +38,9 @@ function hello() {
     sdo.dsk2['s'].ds.toString();
     `hello ${world}`;
 }
+export const b = 1;
+export default 42;
+import { c } from 'd';
         "#;
         println!("Original Code:\n{}", code);
         let allocator = Allocator::default();
