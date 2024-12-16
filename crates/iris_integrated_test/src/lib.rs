@@ -1,3 +1,7 @@
+#![cfg(feature = "test")]
+
+mod integrated;
+pub mod shared;
 
 #[cfg(test)]
 mod tests {
@@ -62,11 +66,11 @@ import { c } from 'd';
         let mut chara = PythonCharacterization::new();
         chara.build(ir);
         // println!("{:#?}", chara.ast);
-        let tokens = ruff::parser::parse("print('Hello, world!')", Mode::Module).unwrap();
-        let stylist = Stylist::from_tokens(&tokens.tokens(), "print('Hello, world!')");
+        let tokens = ruff::parser::parse("", Mode::Module).unwrap();
+        let stylist = Stylist::from_tokens(&tokens.tokens(), "");
         let mut final_code = String::new();
         for stmt in chara.ast.unwrap().body.iter() {
-            let mut generator = ruff::codegen::Generator::from(&stylist);
+            let generator = ruff::codegen::Generator::from(&stylist);
             final_code += generator.stmt(&stmt).as_str();
             final_code += "\n";
         }
@@ -116,7 +120,7 @@ if (result !== -1) {
             .with_excess_capacity(2.0)
             .build(&program);
         let (symbols, scopes) = ret.semantic.into_symbol_table_and_scope_tree();
-        let mut transformer = iris_ecma::EcmaLower::new(&allocator, Path::new("test.js"));
+        let transformer = iris_ecma::EcmaLower::new(&allocator, Path::new("test.js"));
         let transformed = transformer.transformer.build_with_symbols_and_scopes(symbols, scopes, &mut program);
         // println!("{:#?}", program.body);
         let mut traverser = iris_ecma::EcmaGeneralization::new();
@@ -130,7 +134,7 @@ if (result !== -1) {
         let stylist = Stylist::from_tokens(&tokens.tokens(), "print('Hello, world!')");
         let mut final_code = String::new();
         for stmt in chara.ast.unwrap().body.iter() {
-            let mut generator = ruff::codegen::Generator::from(&stylist);
+            let generator = ruff::codegen::Generator::from(&stylist);
             final_code += generator.stmt(&stmt).as_str();
             final_code += "\n";
         }

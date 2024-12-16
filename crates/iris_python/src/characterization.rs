@@ -6,12 +6,15 @@ use ruff::span::{TextRange, TextSize};
 
 pub struct PythonCharacterization {
     pub ast: Option<ModModule>,
-    pub imported_modules: Vec<String>
+    pub imported_modules: Vec<String>,
 }
 
 impl PythonCharacterization {
     pub fn new() -> Self {
-        Self { ast: None, imported_modules: vec![] }
+        Self {
+            ast: None,
+            imported_modules: vec![],
+        }
     }
 
     pub fn build(&mut self, program: Program) {
@@ -69,11 +72,13 @@ impl PythonCharacterization {
             }
             Statement::ExportNamedDeclaration(export_named_declaration) => {
                 self.trans_export_named_declaration(export_named_declaration)
-            },
+            }
             Statement::ExportDefaultDeclaration(export_default_declaration) => {
                 self.trans_export_default_declaration(export_default_declaration)
             }
-            Statement::ExportAllDeclaration(_) => {vec![]}
+            Statement::ExportAllDeclaration(_) => {
+                vec![]
+            }
             _ => unimplemented!("Unsupported statement: {:?}", statement),
         }
     }
@@ -269,12 +274,39 @@ impl PythonCharacterization {
 
     pub fn trans_binary_operation(&mut self, binary_expression: &BinaryExpression) -> Expr {
         if binary_expression.operator.is_arithmetic() || binary_expression.operator.is_bitwise() {
-            Expr::BinOp(ExprBinOp {
-                range: binary_expression.span.clone().into(),
-                left: Box::new(self.trans_expression(&binary_expression.left)),
-                op: binary_expression.operator.into(),
-                right: Box::new(self.trans_expression(&binary_expression.right)),
-            })
+            if matches!(
+                binary_expression.operator,
+                BinaryOperator::ShiftRightZeroFill
+            ) {
+                // ((left & 0xFFFFFFFF) >> shift) & 0xFFFFFFFF
+                let offset = Expr::NumberLiteral(ExprNumberLiteral {
+                    range: TextRange::empty(TextSize::new(10)),
+                    value: Number::Int(Int::from(0xffffffffu64)),
+                });
+                Expr::BinOp(ExprBinOp {
+                    range: binary_expression.span.clone().into(),
+                    left: Box::from(Expr::BinOp(ExprBinOp {
+                        range: binary_expression.span.clone().into(),
+                        left: Box::from(Expr::BinOp(ExprBinOp {
+                            range: binary_expression.span.clone().into(),
+                            left: Box::from(self.trans_expression(&binary_expression.left)),
+                            op: BinaryOperator::BitwiseAnd.into(),
+                            right: Box::from(offset.clone()),
+                        })),
+                        op: BinaryOperator::ShiftRight.into(),
+                        right: Box::from(self.trans_expression(&binary_expression.right)),
+                    })),
+                    op: BinaryOperator::BitwiseAnd.into(),
+                    right: Box::from(offset),
+                })
+            } else {
+                Expr::BinOp(ExprBinOp {
+                    range: binary_expression.span.clone().into(),
+                    left: Box::new(self.trans_expression(&binary_expression.left)),
+                    op: binary_expression.operator.into(),
+                    right: Box::new(self.trans_expression(&binary_expression.right)),
+                })
+            }
         } else if binary_expression.operator.is_comparison() {
             Expr::Compare(ExprCompare {
                 range: binary_expression.span.clone().into(),
@@ -322,9 +354,12 @@ impl PythonCharacterization {
                 // Thus, the expected result should be `(console.log("Hello, world!"), None)[-1]`, though it should be handled into `print` function.
                 self.trans_sequence_expression(&SequenceExpression {
                     span: unary_expression.span.clone(),
-                    expressions: vec![unary_expression.argument.clone(), Expression::NullLiteral(NullLiteral {
-                        span: unary_expression.span.clone(),
-                    })],
+                    expressions: vec![
+                        unary_expression.argument.clone(),
+                        Expression::NullLiteral(NullLiteral {
+                            span: unary_expression.span.clone(),
+                        }),
+                    ],
                 })
             }
             UnaryOperator::Typeof => {
@@ -361,7 +396,9 @@ impl PythonCharacterization {
         if lambda_expression.expression {
             ExprLambda {
                 range: lambda_expression.span.clone().into(),
-                parameters: Some(Box::new(self.trans_formal_parameters(&lambda_expression.params))),
+                parameters: Some(Box::new(
+                    self.trans_formal_parameters(&lambda_expression.params),
+                )),
                 body: Box::new(
                     match lambda_expression
                         .body
@@ -448,69 +485,58 @@ impl PythonCharacterization {
         })
     }
 
-    pub fn trans_identifier(
-        &mut self,
-        identifier: &iris_low_level_ir::shared::Identifier,
-    ) -> Expr {
+    pub fn trans_identifier(&mut self, identifier: &iris_low_level_ir::shared::Identifier) -> Expr {
         match identifier.name.as_str() {
-            "undefined" => {
-                Expr::NoneLiteral(ExprNoneLiteral {
+            "undefined" => Expr::NoneLiteral(ExprNoneLiteral {
+                range: identifier.span.clone().into(),
+            }),
+            "NaN" => Expr::Call(ExprCall {
+                range: identifier.span.clone().into(),
+                func: Box::new(Expr::Name(ExprName {
                     range: identifier.span.clone().into(),
-                })
-            }
-            "NaN" => {
-                Expr::Call(ExprCall {
-                    range: identifier.span.clone().into(),
-                    func: Box::new(Expr::Name(ExprName {
-                        range: identifier.span.clone().into(),
-                        id: "float".into(),
-                        ctx: ExprContext::Load,
-                    })),
-                    arguments: Arguments {
-                        range: identifier.span.clone().into(),
-                        args: vec![Expr::StringLiteral(ExprStringLiteral {
-                            range: identifier.span.clone().into(),
-                            value: StringLiteralValue::single(ruff::ast::StringLiteral {
-                                range: identifier.span.clone().into(),
-                                value: "nan".into(),
-                                flags: StringLiteralPrefix::Empty.into(),
-                            }),
-                        })]
-                        .into_boxed_slice(),
-                        keywords: vec![].into_boxed_slice(),
-                    },
-                })
-            }
-            "Infinity" => {
-                Expr::Call(ExprCall {
-                    range: identifier.span.clone().into(),
-                    func: Box::new(Expr::Name(ExprName {
-                        range: identifier.span.clone().into(),
-                        id: "float".into(),
-                        ctx: ExprContext::Load,
-                    })),
-                    arguments: Arguments {
-                        range: identifier.span.clone().into(),
-                        args: vec![Expr::StringLiteral(ExprStringLiteral {
-                            range: identifier.span.clone().into(),
-                            value: StringLiteralValue::single(ruff::ast::StringLiteral {
-                                range: identifier.span.clone().into(),
-                                value: "inf".into(),
-                                flags: StringLiteralPrefix::Empty.into(),
-                            }),
-                        })]
-                        .into_boxed_slice(),
-                        keywords: vec![].into_boxed_slice(),
-                    },
-                })
-            }
-            _ => {
-                Expr::Name(ExprName {
-                    range: identifier.span.clone().into(),
-                    id: Name::from(identifier.name.clone()),
+                    id: "float".into(),
                     ctx: ExprContext::Load,
-                })
-            }
+                })),
+                arguments: Arguments {
+                    range: identifier.span.clone().into(),
+                    args: vec![Expr::StringLiteral(ExprStringLiteral {
+                        range: identifier.span.clone().into(),
+                        value: StringLiteralValue::single(ruff::ast::StringLiteral {
+                            range: identifier.span.clone().into(),
+                            value: "nan".into(),
+                            flags: StringLiteralPrefix::Empty.into(),
+                        }),
+                    })]
+                    .into_boxed_slice(),
+                    keywords: vec![].into_boxed_slice(),
+                },
+            }),
+            "Infinity" => Expr::Call(ExprCall {
+                range: identifier.span.clone().into(),
+                func: Box::new(Expr::Name(ExprName {
+                    range: identifier.span.clone().into(),
+                    id: "float".into(),
+                    ctx: ExprContext::Load,
+                })),
+                arguments: Arguments {
+                    range: identifier.span.clone().into(),
+                    args: vec![Expr::StringLiteral(ExprStringLiteral {
+                        range: identifier.span.clone().into(),
+                        value: StringLiteralValue::single(ruff::ast::StringLiteral {
+                            range: identifier.span.clone().into(),
+                            value: "inf".into(),
+                            flags: StringLiteralPrefix::Empty.into(),
+                        }),
+                    })]
+                    .into_boxed_slice(),
+                    keywords: vec![].into_boxed_slice(),
+                },
+            }),
+            _ => Expr::Name(ExprName {
+                range: identifier.span.clone().into(),
+                id: Name::from(identifier.name.clone()),
+                ctx: ExprContext::Load,
+            }),
         }
     }
 
@@ -581,7 +607,11 @@ impl PythonCharacterization {
             range: sequence_expression.span.clone().into(),
             value: Box::new(Expr::Tuple(ExprTuple {
                 range: sequence_expression.span.clone().into(),
-                elts: sequence_expression.expressions.iter().map(|x| self.trans_expression(x)).collect(),
+                elts: sequence_expression
+                    .expressions
+                    .iter()
+                    .map(|x| self.trans_expression(x))
+                    .collect(),
                 ctx: ExprContext::Load,
                 parenthesized: true,
             })),
@@ -632,7 +662,9 @@ impl PythonCharacterization {
             Expression::UnaryExpression(unary)
                 if matches!(unary.operator, UnaryOperator::Delete) =>
             {
-                println!("Warning: `delete` operator is not supported in Python. It will be transformed into a pass statement.");
+                println!(
+                    "Warning: `delete` operator is not supported in Python. It will be transformed into a pass statement."
+                );
                 Stmt::Delete(StmtDelete {
                     range: expression_statement.span.clone().into(),
                     targets: vec![self.trans_expression(&unary.argument)],
@@ -658,13 +690,11 @@ impl PythonCharacterization {
 
     pub fn trans_assignment_target(&mut self, assignment_target: &AssignmentTarget) -> Expr {
         match assignment_target {
-            AssignmentTarget::AssignmentTargetIdentifier(identifier) => {
-                Expr::Name(ExprName {
-                    range: identifier.span.clone().into(),
-                    id: Name::from(identifier.name.clone()),
-                    ctx: ExprContext::Load,
-                })
-            }
+            AssignmentTarget::AssignmentTargetIdentifier(identifier) => Expr::Name(ExprName {
+                range: identifier.span.clone().into(),
+                id: Name::from(identifier.name.clone()),
+                ctx: ExprContext::Load,
+            }),
             AssignmentTarget::MemberExpression(member_expression) => {
                 self.trans_member_expression(member_expression)
             }
@@ -841,13 +871,11 @@ impl PythonCharacterization {
             Stmt::Assign(StmtAssign {
                 range: variable_declarator.span.clone().into(),
                 targets: vec![match &variable_declarator.id.kind {
-                    BindingPatternKind::BindingIdentifier(identifier) => {
-                        Expr::Name(ExprName {
-                            range: identifier.span.clone().into(),
-                            id: Name::from(identifier.name.clone()),
-                            ctx: ExprContext::Load,
-                        })
-                    }
+                    BindingPatternKind::BindingIdentifier(identifier) => Expr::Name(ExprName {
+                        range: identifier.span.clone().into(),
+                        id: Name::from(identifier.name.clone()),
+                        ctx: ExprContext::Load,
+                    }),
                     _ => unimplemented!(),
                 }],
                 value: Box::new(self.trans_expression(init)),
@@ -855,59 +883,75 @@ impl PythonCharacterization {
         })
     }
 
-    pub fn trans_import_declaration(&mut self, import_declaration: &ImportDeclaration) -> Vec<Stmt> {
+    pub fn trans_import_declaration(
+        &mut self,
+        import_declaration: &ImportDeclaration,
+    ) -> Vec<Stmt> {
         let (module, level) = import_declaration.source.as_python();
-        import_declaration.specifiers.as_ref().map(|specifiers| {
-            specifiers.iter().map(|specifier| {
-                match specifier {
-                    ImportDeclarationSpecifier::ImportSpecifier(import) => {
-                        Stmt::ImportFrom(StmtImportFrom {
-                            range: import.span.clone().into(),
-                            names: vec![Alias {
+        import_declaration
+            .specifiers
+            .as_ref()
+            .map(|specifiers| {
+                specifiers
+                    .iter()
+                    .map(|specifier| match specifier {
+                        ImportDeclarationSpecifier::ImportSpecifier(import) => {
+                            Stmt::ImportFrom(StmtImportFrom {
                                 range: import.span.clone().into(),
-                                name: match &import.imported {
-                                    Expression::Identifier(idt) => Self::trans_identifier_to_identifier(idt),
-                                    _ => unimplemented!()
-                                },
-                                asname: Some(Self::trans_identifier_to_identifier(&import.local)),
-                            }],
-                            module: Some(Self::trans_identifier_to_identifier(&module)),
-                            level,
-                        })
-                    }
-                    ImportDeclarationSpecifier::ImportDefaultSpecifier(default) => {
-                        Stmt::ImportFrom(StmtImportFrom {
-                            range: default.span.clone().into(),
-                            names: vec![Alias {
+                                names: vec![Alias {
+                                    range: import.span.clone().into(),
+                                    name: match &import.imported {
+                                        Expression::Identifier(idt) => {
+                                            Self::trans_identifier_to_identifier(idt)
+                                        }
+                                        _ => unimplemented!(),
+                                    },
+                                    asname: Some(Self::trans_identifier_to_identifier(
+                                        &import.local,
+                                    )),
+                                }],
+                                module: Some(Self::trans_identifier_to_identifier(&module)),
+                                level,
+                            })
+                        }
+                        ImportDeclarationSpecifier::ImportDefaultSpecifier(default) => {
+                            Stmt::ImportFrom(StmtImportFrom {
                                 range: default.span.clone().into(),
-                                name: ruff::ast::Identifier {
-                                    id: Name::from("default".to_string()),
+                                names: vec![Alias {
                                     range: default.span.clone().into(),
-                                },
-                                asname: Some(Self::trans_identifier_to_identifier(&default.local)),
-                            }],
-                            module: Some(Self::trans_identifier_to_identifier(&module)),
-                            level,
-                        })
-                    }
-                    ImportDeclarationSpecifier::ImportNamespaceSpecifier(namespace) => {
-                        Stmt::ImportFrom(StmtImportFrom {
-                            range: namespace.span.clone().into(),
-                            names: vec![Alias {
+                                    name: ruff::ast::Identifier {
+                                        id: Name::from("default".to_string()),
+                                        range: default.span.clone().into(),
+                                    },
+                                    asname: Some(Self::trans_identifier_to_identifier(
+                                        &default.local,
+                                    )),
+                                }],
+                                module: Some(Self::trans_identifier_to_identifier(&module)),
+                                level,
+                            })
+                        }
+                        ImportDeclarationSpecifier::ImportNamespaceSpecifier(namespace) => {
+                            Stmt::ImportFrom(StmtImportFrom {
                                 range: namespace.span.clone().into(),
-                                name: ruff::ast::Identifier {
-                                    id: Name::from("*".to_string()),
+                                names: vec![Alias {
                                     range: namespace.span.clone().into(),
-                                },
-                                asname: Some(Self::trans_identifier_to_identifier(&namespace.local)),
-                            }],
-                            module: Some(Self::trans_identifier_to_identifier(&module)),
-                            level,
-                        })
-                    }
-                }
-            }).collect::<Vec<_>>()
-        }).unwrap_or_default()
+                                    name: ruff::ast::Identifier {
+                                        id: Name::from("*".to_string()),
+                                        range: namespace.span.clone().into(),
+                                    },
+                                    asname: Some(Self::trans_identifier_to_identifier(
+                                        &namespace.local,
+                                    )),
+                                }],
+                                module: Some(Self::trans_identifier_to_identifier(&module)),
+                                level,
+                            })
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
     }
 
     pub fn trans_export_named_declaration(
@@ -926,13 +970,25 @@ impl PythonCharacterization {
         export_default_declaration: &ExportDefaultDeclaration,
     ) -> Vec<Stmt> {
         if export_default_declaration.declaration.is_left() {
-            vec![self.trans_expression_statement(&ExpressionStatement {
-                span: export_default_declaration.span.clone(),
-                expression: export_default_declaration.declaration.clone().left().unwrap().clone(),
-            })]
+            vec![
+                self.trans_expression_statement(&ExpressionStatement {
+                    span: export_default_declaration.span.clone(),
+                    expression: export_default_declaration
+                        .declaration
+                        .clone()
+                        .left()
+                        .unwrap()
+                        .clone(),
+                }),
+            ]
         } else {
-            self.trans_statement(&export_default_declaration.declaration.clone().right().unwrap())
+            self.trans_statement(
+                &export_default_declaration
+                    .declaration
+                    .clone()
+                    .right()
+                    .unwrap(),
+            )
         }
     }
-
 }

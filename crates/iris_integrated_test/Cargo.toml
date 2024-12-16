@@ -1,9 +1,12 @@
 [package]
-name = "iris_integrated"
+name = "iris_integrated_test"
 authors.workspace = true
 categories.workspace = true
 version.workspace = true
 edition.workspace = true
+
+# [lib]
+# test = true
 
 [dev-dependencies]
 iris_low_level_ir = { workspace = true }
@@ -11,3 +14,7 @@ iris_ecma = { workspace = true }
 iris_python = { workspace = true }
 oxc = { workspace = true }
 ruff = { workspace = true }
+
+[features]
+default = []
+test = []

@@ -138,7 +138,7 @@ impl<'a> EcmaGeneralization {
         NumericLiteral {
             span: it.span.into(),
             value: it.value,
-            raw: it.raw.to_string(),
+            raw: it.raw.as_ref().map(|x| x.to_string()).unwrap_or_default(),
             base: match it.base {
                 oxc::ast::ast::NumberBase::Binary => NumberBase::Binary,
                 oxc::ast::ast::NumberBase::Octal => NumberBase::Octal,

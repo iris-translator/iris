@@ -10,11 +10,11 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace.dependencies]
-oxc = { version = "0.39.0", features = ["full"] }
-oxc_resolver = "2.1.1"
-oxc_traverse = "0.39.0"
-oxc_ecmascript = "0.39.0"
-oxc_index = "1.0.1"
+oxc = { version = "0.41.0", features = ["full"] }
+oxc_resolver = "3.0.3"
+oxc_traverse = "0.41.0"
+oxc_ecmascript = "0.41.0"
+oxc_index = "2.0.0"
 # Ruff does not appear in crates.io, but we need to use it for parse/codegen
 anyhow = "1.0.94"
 nonmax = "0.5.5"
@@ -32,3 +32,5 @@ iris_ecma = { path = "crates/iris_ecma" }
 iris_low_level_ir = { path = "crates/iris_low_level_ir" }
 
 ruff = { path = "crates/ruff"}
+
+iris_integrated_test = { path = "crates/iris_integrated_test" }
