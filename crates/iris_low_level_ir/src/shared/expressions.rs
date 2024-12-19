@@ -7,7 +7,7 @@ use crate::shared::{AssignmentTarget, FormalParameters, Function, VariableDeclar
 use crate::shared::operator::{BinaryOperator, LogicalOperator, UnaryOperator};
 
 #[derive(Debug, Clone)]
-pub enum Expression {
+pub enum  Expression {
     BooleanLiteral(BooleanLiteral),
     NullLiteral(NullLiteral),
     NumericLiteral(NumericLiteral),
@@ -196,6 +196,16 @@ impl From<oxc::ast::ast::PropertyKind> for PropertyKind {
             oxc::ast::ast::PropertyKind::Init => PropertyKind::Init,
             oxc::ast::ast::PropertyKind::Get => PropertyKind::Get,
             oxc::ast::ast::PropertyKind::Set => PropertyKind::Set,
+        }
+    }
+}
+
+impl Into<oxc::ast::ast::PropertyKind> for PropertyKind {
+    fn into(self) -> oxc::ast::ast::PropertyKind {
+        match self {
+            PropertyKind::Init => oxc::ast::ast::PropertyKind::Init,
+            PropertyKind::Get => oxc::ast::ast::PropertyKind::Get,
+            PropertyKind::Set => oxc::ast::ast::PropertyKind::Set,
         }
     }
 }

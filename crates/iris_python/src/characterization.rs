@@ -4,6 +4,7 @@ use ruff::ast::name::Name;
 use ruff::ast::*;
 use ruff::span::{TextRange, TextSize};
 
+#[derive(Debug, Clone)]
 pub struct PythonCharacterization {
     pub ast: Option<ModModule>,
     pub imported_modules: Vec<String>,

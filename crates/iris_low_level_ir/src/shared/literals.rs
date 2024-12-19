@@ -46,6 +46,31 @@ impl NumberBase {
     }
 }
 
+impl From<oxc::ast::ast::NumberBase> for NumberBase {
+    fn from(value: oxc::ast::ast::NumberBase) -> Self {
+        match value {
+            oxc::ast::ast::NumberBase::Binary => NumberBase::Binary,
+            oxc::ast::ast::NumberBase::Octal => NumberBase::Octal,
+            oxc::ast::ast::NumberBase::Decimal => NumberBase::Decimal,
+            oxc::ast::ast::NumberBase::Hex => NumberBase::Hexadecimal,
+            oxc::ast::ast::NumberBase::Float => NumberBase::Float,
+        }
+    }
+}
+
+impl Into<oxc::ast::ast::NumberBase> for NumberBase {
+    fn into(self) -> oxc::ast::ast::NumberBase {
+        match self {
+            NumberBase::Binary => oxc::ast::ast::NumberBase::Binary,
+            NumberBase::Octal => oxc::ast::ast::NumberBase::Octal,
+            NumberBase::Decimal => oxc::ast::ast::NumberBase::Decimal,
+            NumberBase::Hexadecimal => oxc::ast::ast::NumberBase::Hex,
+            NumberBase::Float => oxc::ast::ast::NumberBase::Float,
+            NumberBase::BigInt => unreachable!(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct StringLiteral {
     pub value: String,
@@ -107,9 +132,9 @@ impl Into<FStringFlags> for FStringPrefix {
 /// A template literal, e.g. `foo` or `foo${bar}baz`, or in Python, f-string, e.g. `f"{bar}"`
 #[derive(Debug, Clone)]
 pub struct TemplateLiteral {
+    pub span: Span,
     pub quasis: Vec<String>,
     pub expressions: Vec<Expression>,
-    pub span: Span,
     pub prefix: FStringPrefix,
 }
 

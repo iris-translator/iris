@@ -9,6 +9,7 @@ use oxc::semantic::{ScopeTree, SymbolTable};
 use oxc::span::GetSpan;
 use oxc_traverse::traverse_mut;
 
+#[derive(Debug, Clone)]
 pub struct EcmaGeneralization {
     pub ir: Option<Program>,
 }

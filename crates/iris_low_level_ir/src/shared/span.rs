@@ -29,3 +29,9 @@ impl Into<ruff::span::TextRange> for Span {
         ruff::span::TextRange::new(ruff::span::TextSize::from(self.start), ruff::span::TextSize::from(self.end))
     }
 }
+
+impl Into<oxc::span::Span> for Span {
+    fn into(self) -> oxc::span::Span {
+        oxc::span::Span::new(self.start, self.end)
+    }
+}
