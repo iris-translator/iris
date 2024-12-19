@@ -1,8 +1,8 @@
 use iris_low_level_ir::shared::*;
 use oxc::allocator::Allocator;
 use oxc::ast::ast::{
-    ArrayExpressionElement, BigintBase, Expression as OxcExpression, PropertyKey,
-    TemplateElementValue,
+    Argument as OxcArgument, ArrayExpressionElement, BigintBase, Expression as OxcExpression,
+    PropertyKey, TemplateElementValue,
 };
 use oxc::ast::{AstBuilder, NONE};
 use oxc::span::SPAN;
@@ -31,7 +31,7 @@ impl<'a> EcmaCharacterization<'a> {
 
     pub fn trans_block_statement(&self, block: &mut BlockStatement) -> oxc::ast::ast::Statement {
         self.builder.statement_block(
-            block.span.clone().into(),
+            SPAN,
             self.builder.vec_from_iter(
                 block
                     .statements
@@ -64,32 +64,56 @@ impl<'a> EcmaCharacterization<'a> {
             Expression::TupleExpression(tuple_expression) => {
                 self.trans_tuple_expression(tuple_expression)
             }
-            Expression::SequenceExpression(sequence_expression) => self.trans_sequence_expression(sequence_expression),
-            Expression::ParenthesizedExpression(parenthesized_expression) => self.trans_parenthesized_expression(parenthesized_expression),
+            Expression::SequenceExpression(sequence_expression) => {
+                self.trans_sequence_expression(sequence_expression)
+            }
+            Expression::ParenthesizedExpression(parenthesized_expression) => {
+                self.trans_parenthesized_expression(parenthesized_expression)
+            }
+            Expression::AwaitExpression(await_expression) => {
+                self.trans_await_expression(await_expression)
+            }
+            Expression::YieldExpression(yield_expression) => {
+                self.trans_yield_expression(yield_expression)
+            }
+            Expression::UnaryExpression(unary_expression) => {
+                self.trans_unary_operation(unary_expression)
+            }
+            Expression::LogicalExpression(logical_expression) => {
+                self.trans_logical_expression(logical_expression)
+            }
+            Expression::ConditionalExpression(cond_expression) => {
+                self.trans_conditional_expression(cond_expression)
+            }
+            Expression::CallExpression(call_expression) => {
+                self.trans_call_expression(call_expression)
+            }
+            Expression::BinaryExpression(binary_expression) => {
+                self.trans_binary_expression(binary_expression)
+            }
             _ => unimplemented!(),
         }
     }
 
     pub fn trans_boolean_literal(&self, boolean_literal: &BooleanLiteral) -> OxcExpression {
         self.builder
-            .expression_boolean_literal(boolean_literal.span.clone().into(), boolean_literal.value)
+            .expression_boolean_literal(SPAN, boolean_literal.value)
     }
 
-    pub fn trans_null_literal(&self, null_literal: &NullLiteral) -> OxcExpression {
-        self.builder
-            .expression_null_literal(null_literal.span.clone().into())
+    pub fn trans_null_literal(&self, _: &NullLiteral) -> OxcExpression {
+        self.builder.expression_null_literal(SPAN)
     }
 
     pub fn trans_numeric_literal(&self, numeric_literal: &NumericLiteral) -> OxcExpression {
         if matches!(numeric_literal.base, NumberBase::BigInt) {
             self.builder.expression_big_int_literal(
-                numeric_literal.span.clone().into(),
+                SPAN,
                 self.builder.atom(numeric_literal.raw.as_str()),
                 BigintBase::Decimal,
             )
         } else {
             self.builder.expression_numeric_literal(
-                numeric_literal.span.clone().into(),
+                SPAN,
                 numeric_literal.value,
                 Some(self.builder.atom(numeric_literal.raw.as_str())),
                 numeric_literal.base.into(),
@@ -99,7 +123,7 @@ impl<'a> EcmaCharacterization<'a> {
 
     pub fn trans_string_literal(&self, string_literal: &StringLiteral) -> OxcExpression {
         self.builder.expression_string_literal(
-            string_literal.span.clone().into(),
+            SPAN,
             self.builder.atom(string_literal.value.as_str()),
             Some(self.builder.atom(string_literal.value.as_str())),
         )
@@ -107,7 +131,7 @@ impl<'a> EcmaCharacterization<'a> {
 
     pub fn trans_template_literal(&self, template_literal: &TemplateLiteral) -> OxcExpression {
         self.builder.expression_template_literal(
-            template_literal.span.clone().into(),
+            SPAN,
             self.builder
                 .vec_from_iter(
                     template_literal
@@ -253,7 +277,7 @@ impl<'a> EcmaCharacterization<'a> {
         sequence_expression: &SequenceExpression,
     ) -> OxcExpression {
         self.builder.expression_sequence(
-            sequence_expression.span.clone().into(),
+            SPAN,
             self.builder.vec_from_iter(
                 sequence_expression
                     .expressions
@@ -268,8 +292,131 @@ impl<'a> EcmaCharacterization<'a> {
         parenthesized_expression: &ParenthesizedExpression,
     ) -> OxcExpression {
         self.builder.expression_parenthesized(
-            parenthesized_expression.span.clone().into(),
+            SPAN,
             self.trans_expression(&parenthesized_expression.expression),
         )
+    }
+
+    pub fn trans_identifier(&self, identifier: &Identifier) -> OxcExpression {
+        self.builder
+            .expression_identifier_reference(SPAN, self.builder.atom(&identifier.name))
+    }
+
+    pub fn trans_await_expression(&self, await_expression: &AwaitExpression) -> OxcExpression {
+        self.builder
+            .expression_await(SPAN, self.trans_expression(&await_expression.argument))
+    }
+
+    pub fn trans_yield_expression(&self, yield_expression: &YieldExpression) -> OxcExpression {
+        self.builder.expression_yield(
+            SPAN,
+            yield_expression.delegate,
+            yield_expression
+                .argument
+                .as_ref()
+                .map(|expr| self.trans_expression(expr)),
+        )
+    }
+
+    pub fn trans_unary_expression(&self, unary_expression: &UnaryExpression) -> OxcExpression {
+        self.builder.expression_unary(
+            SPAN,
+            unary_expression.operator.into(),
+            self.trans_expression(&unary_expression.argument),
+        )
+    }
+
+    pub fn trans_logical_expression(
+        &self,
+        logical_expression: &LogicalExpression,
+    ) -> OxcExpression {
+        self.builder.expression_logical(
+            SPAN,
+            self.trans_expression(&logical_expression.left),
+            logical_expression.operator.into(),
+            self.trans_expression(&logical_expression.right),
+        )
+    }
+
+    pub fn trans_call_expression(&self, call_expression: &CallExpression) -> OxcExpression {
+        if call_expression.new {
+            self.builder.expression_new(
+                SPAN,
+                self.trans_expression(&call_expression.callee),
+                self.builder.vec_from_iter(
+                    call_expression
+                        .arguments
+                        .iter()
+                        .map(|expr| self.trans_argument(expr)),
+                ),
+                NONE,
+            )
+        } else {
+            self.builder.expression_call(
+                SPAN,
+                self.trans_expression(&call_expression.callee),
+                NONE,
+                self.builder.vec_from_iter(
+                    call_expression
+                        .arguments
+                        .iter()
+                        .map(|expr| self.trans_argument(expr)),
+                ),
+                call_expression.optional,
+            )
+        }
+    }
+
+    pub fn trans_argument(&self, argument: &Expression) -> oxc::ast::ast::Argument {
+        match argument {
+            Expression::SpreadElement(spread) => self
+                .builder
+                .argument_spread_element(SPAN, self.trans_expression(&spread.argument)),
+            _ => oxc::ast::ast::Argument::from(self.trans_expression(argument)),
+        }
+    }
+
+    pub fn trans_conditional_expression(
+        &self,
+        cond_expression: &ConditionalExpression,
+    ) -> OxcExpression {
+        self.builder.expression_conditional(
+            SPAN,
+            self.trans_expression(&cond_expression.test),
+            self.trans_expression(&cond_expression.consequent),
+            self.trans_expression(&cond_expression.alternate),
+        )
+    }
+
+    pub fn trans_unary_operation(&self, unary_expression: &UnaryExpression) -> OxcExpression {
+        self.builder.expression_unary(
+            SPAN,
+            unary_expression.operator.into(),
+            self.trans_expression(&unary_expression.argument),
+        )
+    }
+
+    pub fn trans_binary_expression(&self, binary_expression: &BinaryExpression) -> OxcExpression {
+        match binary_expression.operator {
+            BinaryOperator::MatMultiplication => self.builder.expression_call(
+                SPAN,
+                self.builder.expression_identifier_reference(SPAN, "matmul"),
+                NONE,
+                self.builder.vec_from_array([
+                    OxcArgument::from(self.trans_expression(&binary_expression.left)),
+                    OxcArgument::from(self.trans_expression(&binary_expression.right)),
+                ]),
+                false,
+            ),
+            _ if binary_expression.operator.is_pattern_matching() => {
+                panic!("Error: Pattern matching is still stage 1.")
+            }
+            _ => self.builder.expression_binary(
+                SPAN,
+                self.trans_expression(&binary_expression.left),
+                binary_expression.operator.into(),
+                self.trans_expression(&binary_expression.right),
+            ),
+        }
     }
 }

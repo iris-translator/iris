@@ -1,8 +1,8 @@
-use ruff::ast::{AnyStringFlags, FStringFlags, StringLiteralFlags};
-use ruff::ast::str::Quote;
-use crate::shared::expressions::Expression;
 use super::span::Span;
-use ruff::ast::str_prefix::{StringLiteralPrefix as RuffStringLiteralPrefix, AnyStringPrefix};
+use crate::shared::expressions::Expression;
+use ruff::ast::str::Quote;
+use ruff::ast::str_prefix::{AnyStringPrefix, StringLiteralPrefix as RuffStringLiteralPrefix};
+use ruff::ast::{AnyStringFlags, FStringFlags, StringLiteralFlags};
 
 #[derive(Debug, Clone)]
 pub struct BooleanLiteral {
@@ -105,27 +105,43 @@ impl From<ruff::ast::str_prefix::FStringPrefix> for FStringPrefix {
     fn from(value: ruff::ast::str_prefix::FStringPrefix) -> Self {
         match value {
             ruff::ast::str_prefix::FStringPrefix::Regular => FStringPrefix::Regular,
-            ruff::ast::str_prefix::FStringPrefix::Raw { uppercase_r } => FStringPrefix::Raw { uppercase_r },
+            ruff::ast::str_prefix::FStringPrefix::Raw { uppercase_r } => {
+                FStringPrefix::Raw { uppercase_r }
+            }
         }
     }
 }
 
 impl Into<StringLiteralFlags> for StringLiteralPrefix {
     fn into(self) -> StringLiteralFlags {
-        AnyStringFlags::new(AnyStringPrefix::Regular(match self {
-            StringLiteralPrefix::Empty => RuffStringLiteralPrefix::Empty,
-            StringLiteralPrefix::Unicode => RuffStringLiteralPrefix::Unicode,
-            StringLiteralPrefix::Raw { uppercase } => RuffStringLiteralPrefix::Raw { uppercase },
-        }), Quote::Double, false).into()
+        AnyStringFlags::new(
+            AnyStringPrefix::Regular(match self {
+                StringLiteralPrefix::Empty => RuffStringLiteralPrefix::Empty,
+                StringLiteralPrefix::Unicode => RuffStringLiteralPrefix::Unicode,
+                StringLiteralPrefix::Raw { uppercase } => {
+                    RuffStringLiteralPrefix::Raw { uppercase }
+                }
+            }),
+            Quote::Double,
+            false,
+        )
+        .into()
     }
 }
 
 impl Into<FStringFlags> for FStringPrefix {
     fn into(self) -> FStringFlags {
-        AnyStringFlags::new(AnyStringPrefix::Format(match self {
-            FStringPrefix::Regular => ruff::ast::str_prefix::FStringPrefix::Regular,
-            FStringPrefix::Raw { uppercase_r } => ruff::ast::str_prefix::FStringPrefix::Raw { uppercase_r },
-        }), Quote::Double, false).into()
+        AnyStringFlags::new(
+            AnyStringPrefix::Format(match self {
+                FStringPrefix::Regular => ruff::ast::str_prefix::FStringPrefix::Regular,
+                FStringPrefix::Raw { uppercase_r } => {
+                    ruff::ast::str_prefix::FStringPrefix::Raw { uppercase_r }
+                }
+            }),
+            Quote::Double,
+            false,
+        )
+        .into()
     }
 }
 

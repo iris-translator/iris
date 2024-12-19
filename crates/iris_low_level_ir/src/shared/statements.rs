@@ -1,8 +1,10 @@
 //! Part of this file is ported from [oxc](https://github.com/oxc-project/oxc/blob/main/oxc_ast/src/ast) and [ruff](https://github.com/astral-sh/ruff/tree/main/crates/ruff_python_ast/src).
 use crate::shared::expressions::{Expression, Identifier};
+use crate::shared::module_declarations::{
+    ExportAllDeclaration, ExportDefaultDeclaration, ExportNamedDeclaration, ImportDeclaration,
+};
 use crate::shared::span::Span;
-use crate::shared::{VariableDeclaration, Function};
-use crate::shared::module_declarations::{ExportAllDeclaration, ExportDefaultDeclaration, ExportNamedDeclaration, ImportDeclaration};
+use crate::shared::{Function, VariableDeclaration};
 
 #[derive(Debug, Clone)]
 pub enum Statement {
@@ -137,12 +139,11 @@ pub struct SwitchCase {
 pub struct ScopeStatement {
     pub span: Span,
     pub r#type: ScopeType,
-    pub identifiers: Vec<Identifier>
+    pub identifiers: Vec<Identifier>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScopeType {
     Global,
-    Nonlocal
+    Nonlocal,
 }
-

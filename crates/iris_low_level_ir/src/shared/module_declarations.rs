@@ -1,5 +1,5 @@
-use either::Either;
 use crate::shared::{Expression, Identifier, Span, Statement, StringLiteral, StringLiteralPrefix};
+use either::Either;
 
 #[derive(Debug, Clone)]
 pub struct ImportDeclaration {
@@ -57,7 +57,7 @@ pub enum CookedImportExportSourcePart {
     Super,
     Directory(String),
     Module(String),
-    File { name: String, extension: String }
+    File { name: String, extension: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -106,7 +106,9 @@ impl ImportExportSource {
         }
         let mut dir_parts = path.split('/').collect::<Vec<_>>();
         if path.starts_with(".") {
-            parts.push(CookedImportExportSourcePart::Directory(dir_parts.remove(0).to_string()))
+            parts.push(CookedImportExportSourcePart::Directory(
+                dir_parts.remove(0).to_string(),
+            ))
         }
         for part in dir_parts {
             if part == ".." {
@@ -129,7 +131,11 @@ impl ImportExportSource {
     }
 
     pub fn as_python(&self) -> (Identifier, u32) {
-        let level = self.cooked.iter().filter(|part| matches!(part, CookedImportExportSourcePart::Super)).count();
+        let level = self
+            .cooked
+            .iter()
+            .filter(|part| matches!(part, CookedImportExportSourcePart::Super))
+            .count();
         let mut module = String::new();
         for part in &self.cooked {
             match part {
@@ -148,12 +154,15 @@ impl ImportExportSource {
                 }
             }
         }
-        (Identifier {
-            span: Span { start: 0, end: 0 },
-            name: module,
-            symbol_id: None,
-            private: false,
-        }, level as u32)
+        (
+            Identifier {
+                span: Span { start: 0, end: 0 },
+                name: module,
+                symbol_id: None,
+                private: false,
+            },
+            level as u32,
+        )
     }
 }
 

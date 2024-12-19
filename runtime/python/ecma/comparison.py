@@ -24,7 +24,7 @@ def ecma_loosely_equals(a, b):
         b. If ℝ(x) = ℝ(y), return true; otherwise return false.
     14. Return false.
     """
-    if type(a) == type(b):
+    if type(a) is type(b):
         return a == b
     if a is None and b is None:
         return True
@@ -54,9 +54,10 @@ def ecma_loosely_equals(a, b):
         return a == float(b)
     return False
 
-def to_primitive(obj):
-    if isinstance(obj, (int, float, str, bool)):
-        return obj
+
+def to_primitive(value):
+    if isinstance(value, (int, float, str, bool)):
+        return value
     elif isinstance(value, tuple):  # Convert tuples
         return tuple(to_primitive(item) for item in value)
     elif isinstance(value, list):  # Convert lists
@@ -65,14 +66,15 @@ def to_primitive(obj):
         return {to_primitive(item) for item in value}
     elif isinstance(value, dict):  # Convert dicts
         return {to_primitive(key): to_primitive(val) for key, val in value.items()}
-    elif hasattr(obj, "__int__"):
-        return int(obj)
-    elif hasattr(obj, "__float__"):
-        return float(obj)
-    elif hasattr(obj, "__str__"):
-        return str(obj)
+    elif hasattr(value, "__int__"):
+        return int(value)
+    elif hasattr(value, "__float__"):
+        return float(value)
+    elif hasattr(value, "__str__"):
+        return str(value)
     else:
-        raise TypeError(f"Cannot convert {type(obj).__name__} to a primitive type")
+        raise TypeError(f"Cannot convert {type(value).__name__} to a primitive type")
+
 
 def ecma_loosely_inequals(a, b):
     return not ecma_loosely_equals(a, b)

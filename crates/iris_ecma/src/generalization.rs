@@ -751,15 +751,15 @@ impl<'a> EcmaGeneralization {
             OxcStatement::ImportDeclaration(it) => {
                 Statement::ImportDeclaration(Box::new(self.trans_import_declaration(it, ctx)))
             }
-            OxcStatement::ExportAllDeclaration(it) => {
-                Statement::ExportAllDeclaration(Box::new(self.trans_export_all_declaration(it, ctx)))
-            },
-            OxcStatement::ExportDefaultDeclaration(it) => {
-                Statement::ExportDefaultDeclaration(Box::new(self.trans_export_default_declaration(it, ctx)))
-            }
-            OxcStatement::ExportNamedDeclaration(it) => {
-                Statement::ExportNamedDeclaration(Box::new(self.trans_export_named_declaration(it, ctx)))
-            }
+            OxcStatement::ExportAllDeclaration(it) => Statement::ExportAllDeclaration(Box::new(
+                self.trans_export_all_declaration(it, ctx),
+            )),
+            OxcStatement::ExportDefaultDeclaration(it) => Statement::ExportDefaultDeclaration(
+                Box::new(self.trans_export_default_declaration(it, ctx)),
+            ),
+            OxcStatement::ExportNamedDeclaration(it) => Statement::ExportNamedDeclaration(
+                Box::new(self.trans_export_named_declaration(it, ctx)),
+            ),
             _ => unimplemented!(),
         }
     }

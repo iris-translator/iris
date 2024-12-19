@@ -88,9 +88,13 @@ pub enum AssignmentTarget {
 impl AssignmentTarget {
     pub fn into_expression(self) -> Expression {
         match self {
-            AssignmentTarget::AssignmentTargetIdentifier(identifier) => Expression::Identifier(identifier),
-            AssignmentTarget::MemberExpression(member_expression) => Expression::MemberExpression(member_expression),
-            _ => unimplemented!()
+            AssignmentTarget::AssignmentTargetIdentifier(identifier) => {
+                Expression::Identifier(identifier)
+            }
+            AssignmentTarget::MemberExpression(member_expression) => {
+                Expression::MemberExpression(member_expression)
+            }
+            _ => unimplemented!(),
         }
     }
 }

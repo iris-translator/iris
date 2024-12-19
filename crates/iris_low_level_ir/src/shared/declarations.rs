@@ -1,8 +1,8 @@
-use crate::shared::{BindingPattern, BindingRestElement};
 use crate::shared::derivatives::Directive;
 use crate::shared::expressions::{Expression, Identifier};
 use crate::shared::span::Span;
 use crate::shared::statements::{BlockStatement, Statement};
+use crate::shared::{BindingPattern, BindingRestElement};
 
 #[derive(Debug, Clone)]
 pub enum Declaration {
@@ -34,7 +34,7 @@ pub enum VariableDeclarationKind {
     AwaitUsing,
 
     /// Python does not have these kinds of declarations. So we can handle it as `ambiguous` for now, despite that it is similar to `var` in JavaScript.
-    Ambiguous
+    Ambiguous,
 }
 
 impl From<oxc::ast::ast::VariableDeclarationKind> for VariableDeclarationKind {
@@ -58,7 +58,7 @@ pub struct Function {
     pub body: Option<FunctionBody>,
     pub r#async: bool,
     pub generator: bool,
-    pub decorators: Vec<Decorator>
+    pub decorators: Vec<Decorator>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,7 +72,7 @@ impl From<oxc::ast::ast::FunctionType> for FunctionType {
         match kind {
             oxc::ast::ast::FunctionType::FunctionDeclaration => Self::FunctionDeclaration,
             oxc::ast::ast::FunctionType::FunctionExpression => Self::FunctionExpression,
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
 }
@@ -81,7 +81,7 @@ impl From<oxc::ast::ast::FunctionType> for FunctionType {
 pub struct FormalParameter {
     pub span: Span,
     pub id: BindingPattern,
-    pub decorators: Vec<Decorator>
+    pub decorators: Vec<Decorator>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Copy)]
@@ -96,8 +96,12 @@ impl From<oxc::ast::ast::FormalParameterKind> for FormalParameterKind {
     fn from(kind: oxc::ast::ast::FormalParameterKind) -> Self {
         match kind {
             oxc::ast::ast::FormalParameterKind::FormalParameter => Self::FormalParameter,
-            oxc::ast::ast::FormalParameterKind::UniqueFormalParameters => Self::UniqueFormalParameters,
-            oxc::ast::ast::FormalParameterKind::ArrowFormalParameters => Self::ArrowFormalParameters,
+            oxc::ast::ast::FormalParameterKind::UniqueFormalParameters => {
+                Self::UniqueFormalParameters
+            }
+            oxc::ast::ast::FormalParameterKind::ArrowFormalParameters => {
+                Self::ArrowFormalParameters
+            }
             oxc::ast::ast::FormalParameterKind::Signature => Self::Signature,
         }
     }

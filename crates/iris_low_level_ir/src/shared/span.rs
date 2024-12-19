@@ -26,7 +26,10 @@ impl From<ruff::span::TextRange> for Span {
 
 impl Into<ruff::span::TextRange> for Span {
     fn into(self) -> ruff::span::TextRange {
-        ruff::span::TextRange::new(ruff::span::TextSize::from(self.start), ruff::span::TextSize::from(self.end))
+        ruff::span::TextRange::new(
+            ruff::span::TextSize::from(self.start),
+            ruff::span::TextSize::from(self.end),
+        )
     }
 }
 

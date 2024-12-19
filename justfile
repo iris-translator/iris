@@ -10,9 +10,19 @@ _default:
 lint:
   cargo clippy --all-targets --all-features -- -D warnings
   ruff check
-  oxlint
+  pnpm run lint
 
 fix:
   cargo fix --allow-dirty
-  ruff fix
-  oxlint --fix
+  ruff check --fix
+  pnpm run fix
+
+fmt:
+  cargo fmt --all
+  ruff format
+  pnpm run format
+
+check:
+  cargo check
+  mypy .
+  tsc

@@ -2,12 +2,12 @@
 
 use crate::shared::declarations::FunctionBody;
 use crate::shared::literals::*;
+use crate::shared::operator::{BinaryOperator, LogicalOperator, UnaryOperator};
 use crate::shared::span::Span;
 use crate::shared::{AssignmentTarget, FormalParameters, Function, VariableDeclaration};
-use crate::shared::operator::{BinaryOperator, LogicalOperator, UnaryOperator};
 
 #[derive(Debug, Clone)]
-pub enum  Expression {
+pub enum Expression {
     BooleanLiteral(BooleanLiteral),
     NullLiteral(NullLiteral),
     NumericLiteral(NumericLiteral),
@@ -45,7 +45,6 @@ pub enum  Expression {
     VariableDeclaration(Box<VariableDeclaration>),
     AssignmentTarget(Box<AssignmentTarget>),
 }
-
 
 #[derive(Debug, Clone)]
 pub struct UnaryExpression {
@@ -131,7 +130,7 @@ pub struct MemberExpression {
     pub object: Expression,
     pub property: Expression,
     pub computed: bool,
-    pub private: bool
+    pub private: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -139,7 +138,7 @@ pub struct Identifier {
     pub span: Span,
     pub name: String,
     pub symbol_id: Option<usize>,
-    pub private: bool
+    pub private: bool,
 }
 
 #[derive(Debug, Clone)]

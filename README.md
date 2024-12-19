@@ -33,6 +33,6 @@ Currently, we are working on the following languages:
 - [ ] Translation between Python and JavaScript/TypeScript
 - [ ] Translation between Rust and C/C++
 
-We know that every language is irreplaceable since there's no one-size-fits-all solution. However, we believe that `IRIS` can help developers to translate code between languages more efficiently. Anyway, *just for fun*.
+We know that every language is irreplaceable since there's no one-size-fits-all solution. However, we believe that `IRIS` can help developers to translate code between languages more efficiently. Anyway, _just for fun_.
 
 This project can potentially be the MIT Maker Portfolio project for me, also the Caltech STEM Portfolio.

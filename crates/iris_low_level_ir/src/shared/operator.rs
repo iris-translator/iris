@@ -1,10 +1,13 @@
-use std::error::Error;
-use std::fmt::Display;
 use oxc::ast::ast::{
     BinaryOperator as OxcBinaryOperator, LogicalOperator as OxcLogicalOperator,
     UnaryOperator as OxcUnaryOperator,
 };
-use ruff::ast::{Operator as RuffBinaryOperator, CmpOp as RuffComparisonOperator, UnaryOp as RuffUnaryOperator, BoolOp as RuffLogicalOperator};
+use ruff::ast::{
+    BoolOp as RuffLogicalOperator, CmpOp as RuffComparisonOperator, Operator as RuffBinaryOperator,
+    UnaryOp as RuffUnaryOperator,
+};
+use std::error::Error;
+use std::fmt::Display;
 
 #[derive(Debug, Clone)]
 pub struct TransformError {
@@ -218,19 +221,13 @@ impl BinaryOperator {
     pub fn is_relational(self) -> bool {
         matches!(
             self,
-            BinaryOperator::In
-                | BinaryOperator::NotIn
-                | BinaryOperator::Instanceof
+            BinaryOperator::In | BinaryOperator::NotIn | BinaryOperator::Instanceof
         )
     }
 
     #[must_use]
     pub fn is_pattern_matching(self) -> bool {
-        matches!(
-            self,
-            BinaryOperator::Is
-                | BinaryOperator::IsNot
-        )
+        matches!(self, BinaryOperator::Is | BinaryOperator::IsNot)
     }
 }
 
@@ -307,7 +304,9 @@ impl Into<RuffBinaryOperator> for BinaryOperator {
             BinaryOperator::BitwiseXor => RuffBinaryOperator::BitXor,
             BinaryOperator::BitwiseAnd => RuffBinaryOperator::BitAnd,
 
-            _ => unreachable!("These are not binary operators in Ruff. You may refer to comparison operators."),
+            _ => unreachable!(
+                "These are not binary operators in Ruff. You may refer to comparison operators."
+            ),
         }
     }
 }
@@ -333,7 +332,9 @@ impl Into<RuffComparisonOperator> for BinaryOperator {
     fn into(self) -> RuffComparisonOperator {
         match self {
             BinaryOperator::Equality | BinaryOperator::StrictEquality => RuffComparisonOperator::Eq,
-            BinaryOperator::Inequality | BinaryOperator::StrictInequality => RuffComparisonOperator::NotEq,
+            BinaryOperator::Inequality | BinaryOperator::StrictInequality => {
+                RuffComparisonOperator::NotEq
+            }
             BinaryOperator::LessThan => RuffComparisonOperator::Lt,
             BinaryOperator::LessEqualThan => RuffComparisonOperator::LtE,
             BinaryOperator::GreaterThan => RuffComparisonOperator::Gt,
@@ -342,7 +343,45 @@ impl Into<RuffComparisonOperator> for BinaryOperator {
             BinaryOperator::IsNot => RuffComparisonOperator::IsNot,
             BinaryOperator::In => RuffComparisonOperator::In,
             BinaryOperator::NotIn => RuffComparisonOperator::NotIn,
-            _ => unreachable!("These are not comparison operators in Ruff. You may refer to binary operators."),
+            _ => unreachable!(
+                "These are not comparison operators in Ruff. You may refer to binary operators."
+            ),
+        }
+    }
+}
+
+impl Into<OxcBinaryOperator> for BinaryOperator {
+    fn into(self) -> OxcBinaryOperator {
+        match self {
+            BinaryOperator::Addition => OxcBinaryOperator::Addition,
+            BinaryOperator::Subtraction => OxcBinaryOperator::Subtraction,
+            BinaryOperator::Multiplication => OxcBinaryOperator::Multiplication,
+            BinaryOperator::Division => OxcBinaryOperator::Division,
+            BinaryOperator::Remainder => OxcBinaryOperator::Remainder,
+            BinaryOperator::Exponential => OxcBinaryOperator::Exponential,
+
+            BinaryOperator::ShiftLeft => OxcBinaryOperator::ShiftLeft,
+            BinaryOperator::ShiftRight => OxcBinaryOperator::ShiftRight,
+            BinaryOperator::ShiftRightZeroFill => OxcBinaryOperator::ShiftRightZeroFill,
+            BinaryOperator::BitwiseOr => OxcBinaryOperator::BitwiseOR,
+            BinaryOperator::BitwiseXor => OxcBinaryOperator::BitwiseXOR,
+            BinaryOperator::BitwiseAnd => OxcBinaryOperator::BitwiseAnd,
+
+            BinaryOperator::Equality => OxcBinaryOperator::Equality,
+            BinaryOperator::Inequality => OxcBinaryOperator::Inequality,
+            BinaryOperator::StrictEquality => OxcBinaryOperator::StrictEquality,
+            BinaryOperator::StrictInequality => OxcBinaryOperator::StrictInequality,
+            BinaryOperator::LessThan => OxcBinaryOperator::LessThan,
+            BinaryOperator::LessEqualThan => OxcBinaryOperator::LessEqualThan,
+            BinaryOperator::GreaterThan => OxcBinaryOperator::GreaterThan,
+            BinaryOperator::GreaterEqualThan => OxcBinaryOperator::GreaterEqualThan,
+
+            BinaryOperator::In => OxcBinaryOperator::In,
+            BinaryOperator::Instanceof => OxcBinaryOperator::Instanceof,
+
+            _ => unreachable!(
+                "These are not binary operators in Oxc. You may refer to comparison operators."
+            ),
         }
     }
 }
@@ -370,6 +409,24 @@ impl From<RuffLogicalOperator> for LogicalOperator {
         match value {
             RuffLogicalOperator::Or => LogicalOperator::Or,
             RuffLogicalOperator::And => LogicalOperator::And,
+        }
+    }
+}
+
+impl Into<OxcLogicalOperator> for LogicalOperator {
+    fn into(self) -> OxcLogicalOperator {
+        match self {
+            LogicalOperator::Or => OxcLogicalOperator::Or,
+            LogicalOperator::And => OxcLogicalOperator::And,
+        }
+    }
+}
+
+impl Into<RuffLogicalOperator> for LogicalOperator {
+    fn into(self) -> RuffLogicalOperator {
+        match self {
+            LogicalOperator::Or => RuffLogicalOperator::Or,
+            LogicalOperator::And => RuffLogicalOperator::And,
         }
     }
 }
