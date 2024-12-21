@@ -294,10 +294,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "iris"
-version = "0.1.0"
-
-[[package]]
 name = "iris_ecma"
 version = "0.1.0"
 dependencies = [

@@ -5,6 +5,8 @@ pub mod shared;
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use iris_python::PythonCharacterization;
     use oxc::allocator::Allocator;
     use oxc::parser::{ParseOptions, Parser};
@@ -12,7 +14,6 @@ mod tests {
     use oxc::span::SourceType;
     use ruff::codegen::Stylist;
     use ruff::parser::Mode;
-    use std::path::Path;
 
     #[test]
     fn test() {
@@ -50,10 +51,8 @@ import { c } from 'd';
         let allocator = Allocator::default();
         let mut options = ParseOptions::default();
         options.allow_return_outside_function = true;
-        let mut program = Parser::new(&allocator, code, SourceType::mjs())
-            .with_options(options)
-            .parse()
-            .program;
+        let mut program =
+            Parser::new(&allocator, code, SourceType::mjs()).with_options(options).parse().program;
         let ret = SemanticBuilder::new()
             // Estimate transformer will triple scopes, symbols, references
             .with_excess_capacity(2.0)
@@ -61,17 +60,10 @@ import { c } from 'd';
         let (symbols, scopes) = ret.semantic.into_symbol_table_and_scope_tree();
         let mut transformer = iris_ecma::EcmaLower::new(&allocator, Path::new("test.js"));
         let transformed =
-            transformer
-                .transformer
-                .build_with_symbols_and_scopes(symbols, scopes, &mut program);
+            transformer.transformer.build_with_symbols_and_scopes(symbols, scopes, &mut program);
         // println!("{:#?}", program.body);
         let mut traverser = iris_ecma::EcmaGeneralization::new();
-        traverser.build(
-            &allocator,
-            &mut program,
-            transformed.symbols,
-            transformed.scopes,
-        );
+        traverser.build(&allocator, &mut program, transformed.symbols, transformed.scopes);
         // println!("{:#?}", traverser.ir);
         let ir = traverser.ir.unwrap();
         let mut chara = PythonCharacterization::new();
@@ -125,10 +117,8 @@ if (result !== -1) {
         let allocator = Allocator::default();
         let mut options = ParseOptions::default();
         options.allow_return_outside_function = true;
-        let mut program = Parser::new(&allocator, code, SourceType::mjs())
-            .with_options(options)
-            .parse()
-            .program;
+        let mut program =
+            Parser::new(&allocator, code, SourceType::mjs()).with_options(options).parse().program;
         let ret = SemanticBuilder::new()
             // Estimate transformer will triple scopes, symbols, references
             .with_excess_capacity(2.0)
@@ -136,17 +126,10 @@ if (result !== -1) {
         let (symbols, scopes) = ret.semantic.into_symbol_table_and_scope_tree();
         let transformer = iris_ecma::EcmaLower::new(&allocator, Path::new("test.js"));
         let transformed =
-            transformer
-                .transformer
-                .build_with_symbols_and_scopes(symbols, scopes, &mut program);
+            transformer.transformer.build_with_symbols_and_scopes(symbols, scopes, &mut program);
         // println!("{:#?}", program.body);
         let mut traverser = iris_ecma::EcmaGeneralization::new();
-        traverser.build(
-            &allocator,
-            &mut program,
-            transformed.symbols,
-            transformed.scopes,
-        );
+        traverser.build(&allocator, &mut program, transformed.symbols, transformed.scopes);
         // println!("{:#?}", traverser.ir);
         let ir = traverser.ir.unwrap();
         let mut chara = PythonCharacterization::new();

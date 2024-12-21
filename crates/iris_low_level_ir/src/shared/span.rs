@@ -8,19 +8,13 @@ pub struct Span {
 
 impl From<oxc::span::Span> for Span {
     fn from(span: oxc::span::Span) -> Self {
-        Self {
-            start: span.start,
-            end: span.end,
-        }
+        Self { start: span.start, end: span.end }
     }
 }
 
 impl From<ruff::span::TextRange> for Span {
     fn from(value: ruff::span::TextRange) -> Self {
-        Self {
-            start: value.start().to_u32(),
-            end: value.end().to_u32(),
-        }
+        Self { start: value.start().to_u32(), end: value.end().to_u32() }
     }
 }
 

@@ -1,9 +1,8 @@
-use crate::toolchain::{
-    allocator::Allocator,
-    transformer::{TransformOptions, Transformer},
-    traverse::Traverse,
-};
 use std::path::Path;
+
+use crate::toolchain::allocator::Allocator;
+use crate::toolchain::transformer::{TransformOptions, Transformer};
+use crate::toolchain::traverse::Traverse;
 
 /// Syntax lowering before transforming into IR.
 ///
@@ -17,9 +16,7 @@ impl<'a> EcmaLower<'a> {
         options.env.es2017.async_to_generator = false;
         options.env.es2018.async_generator_functions = false;
         options.env.es2016.exponentiation_operator = false;
-        EcmaLower {
-            transformer: Transformer::new(allocator, source_path, &options),
-        }
+        EcmaLower { transformer: Transformer::new(allocator, source_path, &options) }
     }
 }
 

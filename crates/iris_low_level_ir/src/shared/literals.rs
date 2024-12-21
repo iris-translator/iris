@@ -1,8 +1,9 @@
-use super::span::Span;
-use crate::shared::expressions::Expression;
 use ruff::ast::str::Quote;
 use ruff::ast::str_prefix::{AnyStringPrefix, StringLiteralPrefix as RuffStringLiteralPrefix};
 use ruff::ast::{AnyStringFlags, FStringFlags, StringLiteralFlags};
+
+use super::span::Span;
+use crate::shared::expressions::Expression;
 
 #[derive(Debug, Clone)]
 pub struct BooleanLiteral {

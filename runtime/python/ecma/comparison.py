@@ -24,6 +24,7 @@ def ecma_loosely_equals(a, b):
         b. If ℝ(x) = ℝ(y), return true; otherwise return false.
     14. Return false.
     """
+    print(type(a), type(b))
     if type(a) is type(b):
         return a == b
     if a is None and b is None:
@@ -78,3 +79,21 @@ def to_primitive(value):
 
 def ecma_loosely_inequals(a, b):
     return not ecma_loosely_equals(a, b)
+
+
+import pytest
+
+
+def test_ecma_loosely_equals():
+    assert ecma_loosely_equals(1, 1)
+    assert ecma_loosely_equals(1, 1.0)
+    assert ecma_loosely_equals(1, "1")
+    assert ecma_loosely_equals(1, True)
+    assert ecma_loosely_equals(1, "1.0")
+    assert ecma_loosely_equals(1, 1 + 0j)
+    assert ecma_loosely_equals(1, [1])
+    assert ecma_loosely_equals(1, (1,))
+    assert ecma_loosely_equals(1, {1})
+    assert ecma_loosely_equals(1, {1: 1})
+    assert ecma_loosely_equals(1, "1e0")
+    assert ecma_loosely_equals(1, "1.0e0")

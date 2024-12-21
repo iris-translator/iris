@@ -1,5 +1,6 @@
-use crate::shared::{Expression, Identifier, Span, Statement, StringLiteral, StringLiteralPrefix};
 use either::Either;
+
+use crate::shared::{Expression, Identifier, Span, Statement, StringLiteral, StringLiteralPrefix};
 
 #[derive(Debug, Clone)]
 pub struct ImportDeclaration {
@@ -106,9 +107,7 @@ impl ImportExportSource {
         }
         let mut dir_parts = path.split('/').collect::<Vec<_>>();
         if path.starts_with(".") {
-            parts.push(CookedImportExportSourcePart::Directory(
-                dir_parts.remove(0).to_string(),
-            ))
+            parts.push(CookedImportExportSourcePart::Directory(dir_parts.remove(0).to_string()))
         }
         for part in dir_parts {
             if part == ".." {

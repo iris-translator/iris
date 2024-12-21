@@ -131,6 +131,7 @@ pub struct MemberExpression {
     pub property: Expression,
     pub computed: bool,
     pub private: bool,
+    pub optional: bool,
 }
 
 #[derive(Debug, Clone)]

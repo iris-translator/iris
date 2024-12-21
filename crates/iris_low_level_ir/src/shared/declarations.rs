@@ -49,6 +49,18 @@ impl From<oxc::ast::ast::VariableDeclarationKind> for VariableDeclarationKind {
     }
 }
 
+impl Into<oxc::ast::ast::VariableDeclarationKind> for VariableDeclarationKind {
+    fn into(self) -> oxc::ast::ast::VariableDeclarationKind {
+        match self {
+            Self::Var | Self::Ambiguous => oxc::ast::ast::VariableDeclarationKind::Var,
+            Self::Const => oxc::ast::ast::VariableDeclarationKind::Const,
+            Self::Let => oxc::ast::ast::VariableDeclarationKind::Let,
+            Self::Using => oxc::ast::ast::VariableDeclarationKind::Using,
+            Self::AwaitUsing => oxc::ast::ast::VariableDeclarationKind::AwaitUsing,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Function {
     pub span: Span,
@@ -73,6 +85,15 @@ impl From<oxc::ast::ast::FunctionType> for FunctionType {
             oxc::ast::ast::FunctionType::FunctionDeclaration => Self::FunctionDeclaration,
             oxc::ast::ast::FunctionType::FunctionExpression => Self::FunctionExpression,
             _ => unimplemented!(),
+        }
+    }
+}
+
+impl Into<oxc::ast::ast::FunctionType> for FunctionType {
+    fn into(self) -> oxc::ast::ast::FunctionType {
+        match self {
+            Self::FunctionDeclaration => oxc::ast::ast::FunctionType::FunctionDeclaration,
+            Self::FunctionExpression => oxc::ast::ast::FunctionType::FunctionExpression,
         }
     }
 }
@@ -103,6 +124,21 @@ impl From<oxc::ast::ast::FormalParameterKind> for FormalParameterKind {
                 Self::ArrowFormalParameters
             }
             oxc::ast::ast::FormalParameterKind::Signature => Self::Signature,
+        }
+    }
+}
+
+impl From<FormalParameterKind> for oxc::ast::ast::FormalParameterKind {
+    fn from(kind: FormalParameterKind) -> Self {
+        match kind {
+            FormalParameterKind::FormalParameter => oxc::ast::ast::FormalParameterKind::FormalParameter,
+            FormalParameterKind::UniqueFormalParameters => {
+                oxc::ast::ast::FormalParameterKind::UniqueFormalParameters
+            }
+            FormalParameterKind::ArrowFormalParameters => {
+                oxc::ast::ast::FormalParameterKind::ArrowFormalParameters
+            }
+            FormalParameterKind::Signature => oxc::ast::ast::FormalParameterKind::Signature,
         }
     }
 }

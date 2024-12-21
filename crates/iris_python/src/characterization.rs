@@ -1,7 +1,6 @@
 use iris_low_level_ir::shared::*;
-use ruff::ast::ModModule;
 use ruff::ast::name::Name;
-use ruff::ast::*;
+use ruff::ast::{ModModule, *};
 use ruff::span::{TextRange, TextSize};
 
 #[derive(Debug, Clone)]
@@ -12,21 +11,13 @@ pub struct PythonCharacterization {
 
 impl PythonCharacterization {
     pub fn new() -> Self {
-        Self {
-            ast: None,
-            imported_modules: vec![],
-        }
+        Self { ast: None, imported_modules: vec![] }
     }
 
     pub fn build(&mut self, program: Program) {
         self.ast = Some(ModModule {
             range: program.span.clone().into(),
-            body: program
-                .body
-                .iter()
-                .map(|x| self.trans_statement(x))
-                .flatten()
-                .collect(),
+            body: program.body.iter().map(|x| self.trans_statement(x)).flatten().collect(),
         })
     }
 
@@ -51,9 +42,7 @@ impl PythonCharacterization {
                 vec![Stmt::Break(self.trans_break_statement(break_statement))]
             }
             Statement::ContinueStatement(continue_statement) => {
-                vec![Stmt::Continue(
-                    self.trans_continue_statement(continue_statement),
-                )]
+                vec![Stmt::Continue(self.trans_continue_statement(continue_statement))]
             }
             Statement::EmptyStatement(empty_statement) => {
                 vec![Stmt::Pass(self.trans_empty_statement(empty_statement))]
@@ -85,12 +74,7 @@ impl PythonCharacterization {
     }
 
     pub fn trans_block_statement(&mut self, block_statement: &BlockStatement) -> Vec<Stmt> {
-        block_statement
-            .statements
-            .iter()
-            .map(|stmt| self.trans_statement(stmt))
-            .flatten()
-            .collect()
+        block_statement.statements.iter().map(|stmt| self.trans_statement(stmt)).flatten().collect()
     }
 
     pub fn trans_expression(&mut self, expression: &Expression) -> Expr {
@@ -165,7 +149,7 @@ impl PythonCharacterization {
             _ => unimplemented!("Unsupported expression: {:?}", expression),
         }
     }
-
+    
     pub fn trans_boolean_literal(
         &mut self,
         boolean_literal: &BooleanLiteral,
@@ -177,9 +161,7 @@ impl PythonCharacterization {
     }
 
     pub fn trans_null_literal(&mut self, null_literal: &NullLiteral) -> ExprNoneLiteral {
-        ExprNoneLiteral {
-            range: null_literal.span.clone().into(),
-        }
+        ExprNoneLiteral { range: null_literal.span.clone().into() }
     }
 
     pub fn trans_numeric_literal(&mut self, numeric_literal: &NumericLiteral) -> ExprNumberLiteral {
@@ -232,10 +214,7 @@ impl PythonCharacterization {
     pub fn trans_template_literal(&mut self, template_literal: &TemplateLiteral) -> ExprFString {
         let mut elements =
             Vec::with_capacity(template_literal.expressions.len() + template_literal.quasis.len());
-        for (quasi, expr) in template_literal
-            .quasis
-            .iter()
-            .zip(template_literal.expressions.iter())
+        for (quasi, expr) in template_literal.quasis.iter().zip(template_literal.expressions.iter())
         {
             elements.push(FStringElement::Literal(FStringLiteralElement {
                 range: template_literal.span.clone().into(),
@@ -275,10 +254,7 @@ impl PythonCharacterization {
 
     pub fn trans_binary_operation(&mut self, binary_expression: &BinaryExpression) -> Expr {
         if binary_expression.operator.is_arithmetic() || binary_expression.operator.is_bitwise() {
-            if matches!(
-                binary_expression.operator,
-                BinaryOperator::ShiftRightZeroFill
-            ) {
+            if matches!(binary_expression.operator, BinaryOperator::ShiftRightZeroFill) {
                 // ((left & 0xFFFFFFFF) >> shift) & 0xFFFFFFFF
                 let offset = Expr::NumberLiteral(ExprNumberLiteral {
                     range: TextRange::empty(TextSize::new(10)),
@@ -336,10 +312,7 @@ impl PythonCharacterization {
                 },
             })
         } else {
-            unimplemented!(
-                "Unsupported binary operator: {:?}",
-                binary_expression.operator
-            )
+            unimplemented!("Unsupported binary operator: {:?}", binary_expression.operator)
         }
     }
 
@@ -397,9 +370,7 @@ impl PythonCharacterization {
         if lambda_expression.expression {
             ExprLambda {
                 range: lambda_expression.span.clone().into(),
-                parameters: Some(Box::new(
-                    self.trans_formal_parameters(&lambda_expression.params),
-                )),
+                parameters: Some(Box::new(self.trans_formal_parameters(&lambda_expression.params))),
                 body: Box::new(
                     match lambda_expression
                         .body
@@ -459,14 +430,9 @@ impl PythonCharacterization {
         if yield_expression.delegate {
             Expr::YieldFrom(ExprYieldFrom {
                 range: yield_expression.span.clone().into(),
-                value: Box::new(
-                    self.trans_expression(
-                        &yield_expression
-                            .argument
-                            .clone()
-                            .expect("Yield from must have an argument"),
-                    ),
-                ),
+                value: Box::new(self.trans_expression(
+                    &yield_expression.argument.clone().expect("Yield from must have an argument"),
+                )),
             })
         } else {
             Expr::Yield(ExprYield {
@@ -488,9 +454,9 @@ impl PythonCharacterization {
 
     pub fn trans_identifier(&mut self, identifier: &iris_low_level_ir::shared::Identifier) -> Expr {
         match identifier.name.as_str() {
-            "undefined" => Expr::NoneLiteral(ExprNoneLiteral {
-                range: identifier.span.clone().into(),
-            }),
+            "undefined" => {
+                Expr::NoneLiteral(ExprNoneLiteral { range: identifier.span.clone().into() })
+            }
             "NaN" => Expr::Call(ExprCall {
                 range: identifier.span.clone().into(),
                 func: Box::new(Expr::Name(ExprName {
@@ -642,11 +608,7 @@ impl PythonCharacterization {
     pub fn trans_tuple_expression(&mut self, tuple_expression: &TupleExpression) -> ExprTuple {
         ExprTuple {
             range: tuple_expression.span.clone().into(),
-            elts: tuple_expression
-                .elements
-                .iter()
-                .map(|x| self.trans_expression(x))
-                .collect(),
+            elts: tuple_expression.elements.iter().map(|x| self.trans_expression(x)).collect(),
             parenthesized: true,
             ctx: ExprContext::Load,
         }
@@ -724,24 +686,18 @@ impl PythonCharacterization {
     }
 
     pub fn trans_break_statement(&mut self, break_statement: &BreakStatement) -> StmtBreak {
-        StmtBreak {
-            range: break_statement.span.clone().into(),
-        }
+        StmtBreak { range: break_statement.span.clone().into() }
     }
 
     pub fn trans_continue_statement(
         &mut self,
         continue_statement: &ContinueStatement,
     ) -> StmtContinue {
-        StmtContinue {
-            range: continue_statement.span.clone().into(),
-        }
+        StmtContinue { range: continue_statement.span.clone().into() }
     }
 
     pub fn trans_empty_statement(&mut self, empty_statement: &EmptyStatement) -> StmtPass {
-        StmtPass {
-            range: empty_statement.span.clone().into(),
-        }
+        StmtPass { range: empty_statement.span.clone().into() }
     }
 
     pub fn trans_if_statement(&mut self, if_statement: &IfStatement) -> StmtIf {
@@ -765,10 +721,7 @@ impl PythonCharacterization {
     pub fn trans_return_statement(&mut self, return_statement: &ReturnStatement) -> StmtReturn {
         StmtReturn {
             range: return_statement.span.clone().into(),
-            value: return_statement
-                .argument
-                .as_ref()
-                .map(|x| Box::new(self.trans_expression(x))),
+            value: return_statement.argument.as_ref().map(|x| Box::new(self.trans_expression(x))),
         }
     }
 
@@ -780,10 +733,7 @@ impl PythonCharacterization {
             range: function_declaration.span.clone().into(),
             parameters: Box::new(self.trans_formal_parameters(&function_declaration.params)),
             name: Self::trans_identifier_to_identifier(
-                &function_declaration
-                    .id
-                    .as_ref()
-                    .expect("This term you must have a name"),
+                &function_declaration.id.as_ref().expect("This term you must have a name"),
             ),
             is_async: function_declaration.r#async,
             type_params: None,
@@ -971,25 +921,12 @@ impl PythonCharacterization {
         export_default_declaration: &ExportDefaultDeclaration,
     ) -> Vec<Stmt> {
         if export_default_declaration.declaration.is_left() {
-            vec![
-                self.trans_expression_statement(&ExpressionStatement {
-                    span: export_default_declaration.span.clone(),
-                    expression: export_default_declaration
-                        .declaration
-                        .clone()
-                        .left()
-                        .unwrap()
-                        .clone(),
-                }),
-            ]
+            vec![self.trans_expression_statement(&ExpressionStatement {
+                span: export_default_declaration.span.clone(),
+                expression: export_default_declaration.declaration.clone().left().unwrap().clone(),
+            })]
         } else {
-            self.trans_statement(
-                &export_default_declaration
-                    .declaration
-                    .clone()
-                    .right()
-                    .unwrap(),
-            )
+            self.trans_statement(&export_default_declaration.declaration.clone().right().unwrap())
         }
     }
 }

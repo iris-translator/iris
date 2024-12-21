@@ -1,3 +1,6 @@
+use std::error::Error;
+use std::fmt::Display;
+
 use oxc::ast::ast::{
     BinaryOperator as OxcBinaryOperator, LogicalOperator as OxcLogicalOperator,
     UnaryOperator as OxcUnaryOperator,
@@ -6,8 +9,6 @@ use ruff::ast::{
     BoolOp as RuffLogicalOperator, CmpOp as RuffComparisonOperator, Operator as RuffBinaryOperator,
     UnaryOp as RuffUnaryOperator,
 };
-use std::error::Error;
-use std::fmt::Display;
 
 #[derive(Debug, Clone)]
 pub struct TransformError {
@@ -219,10 +220,7 @@ impl BinaryOperator {
 
     #[must_use]
     pub fn is_relational(self) -> bool {
-        matches!(
-            self,
-            BinaryOperator::In | BinaryOperator::NotIn | BinaryOperator::Instanceof
-        )
+        matches!(self, BinaryOperator::In | BinaryOperator::NotIn | BinaryOperator::Instanceof)
     }
 
     #[must_use]

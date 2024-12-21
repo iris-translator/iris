@@ -1,6 +1,3 @@
-use crate::toolchain::index::Idx;
-use crate::toolchain::span::SPAN;
-use crate::toolchain::traverse::{Traverse, TraverseCtx};
 use either::{Left, Right};
 use iris_low_level_ir::shared::*;
 use oxc::allocator::Allocator;
@@ -8,6 +5,10 @@ use oxc::ast::{match_assignment_target, match_expression, match_member_expressio
 use oxc::semantic::{ScopeTree, SymbolTable};
 use oxc::span::GetSpan;
 use oxc_traverse::traverse_mut;
+
+use crate::toolchain::index::Idx;
+use crate::toolchain::span::SPAN;
+use crate::toolchain::traverse::{Traverse, TraverseCtx};
 
 #[derive(Debug, Clone)]
 pub struct EcmaGeneralization {
@@ -54,7 +55,9 @@ impl<'a> EcmaGeneralization {
             OxcExpression::BigIntLiteral(it) => {
                 Expression::NumericLiteral(Self::trans_bigint_literal(it))
             }
-            OxcExpression::RegExpLiteral(_it) => unimplemented!("RegExpLiteral"),
+            OxcExpression::RegExpLiteral(_it) => {
+                unimplemented!("RegExpLiteral")
+            }
             OxcExpression::StringLiteral(it) => {
                 Expression::StringLiteral(Self::trans_string_literal(it))
             }
@@ -123,16 +126,11 @@ impl<'a> EcmaGeneralization {
     }
 
     pub fn trans_boolean_literal(it: &oxc::ast::ast::BooleanLiteral) -> BooleanLiteral {
-        BooleanLiteral {
-            span: it.span.into(),
-            value: it.value,
-        }
+        BooleanLiteral { span: it.span.into(), value: it.value }
     }
 
     pub fn trans_null_literal(it: &oxc::ast::ast::NullLiteral) -> NullLiteral {
-        NullLiteral {
-            span: it.span.into(),
-        }
+        NullLiteral { span: it.span.into() }
     }
 
     pub fn trans_numeric_literal(it: &oxc::ast::ast::NumericLiteral) -> NumericLiteral {
@@ -178,11 +176,7 @@ impl<'a> EcmaGeneralization {
     ) -> TemplateLiteral {
         TemplateLiteral {
             span: it.span.into(),
-            quasis: it
-                .quasis
-                .iter()
-                .map(|x| x.value.raw.to_string())
-                .collect::<Vec<_>>(),
+            quasis: it.quasis.iter().map(|x| x.value.raw.to_string()).collect::<Vec<_>>(),
             expressions: it
                 .expressions
                 .iter()
@@ -245,9 +239,9 @@ impl<'a> EcmaGeneralization {
                 .elements
                 .iter()
                 .map(|x| match x {
-                    ArrayExpressionElement::Elision(it) => Expression::Elision(Elision {
-                        span: it.span.into(),
-                    }),
+                    ArrayExpressionElement::Elision(it) => {
+                        Expression::Elision(Elision { span: it.span.into() })
+                    }
                     ArrayExpressionElement::SpreadElement(it) => {
                         Expression::SpreadElement(Box::new(self.trans_spread_element(it, ctx)))
                     }
@@ -310,11 +304,7 @@ impl<'a> EcmaGeneralization {
                 .iter()
                 .map(|x| self.trans_statement(x, ctx))
                 .collect::<Vec<_>>(),
-            directives: it
-                .directives
-                .iter()
-                .map(|x| Self::trans_directive(x))
-                .collect::<Vec<_>>(),
+            directives: it.directives.iter().map(|x| Self::trans_directive(x)).collect::<Vec<_>>(),
         }
     }
 
@@ -361,10 +351,7 @@ impl<'a> EcmaGeneralization {
         it: &oxc::ast::ast::Decorator,
         ctx: &mut TraverseCtx<'a>,
     ) -> Decorator {
-        Decorator {
-            span: it.span.into(),
-            expression: self.trans_expression(&it.expression, ctx),
-        }
+        Decorator { span: it.span.into(), expression: self.trans_expression(&it.expression, ctx) }
     }
 
     pub fn trans_assignment_expression(
@@ -372,7 +359,13 @@ impl<'a> EcmaGeneralization {
         it: &oxc::ast::ast::AssignmentExpression,
         ctx: &mut TraverseCtx<'a>,
     ) -> Option<AssignmentExpression> {
-        if !matches!(it.operator, oxc::ast::ast::AssignmentOperator::Assign) {
+        if matches!(it.operator, oxc::ast::ast::AssignmentOperator::Assign) {
+            Some(AssignmentExpression {
+                span: it.span.into(),
+                target: self.trans_assignment_target(&it.left, ctx),
+                value: self.trans_expression(&it.right, ctx),
+            })
+        } else {
             // First we need to transform the assignment with other operators into a simple assignment with the operator
             let bin = BinaryExpression {
                 span: SPAN.into(),
@@ -385,12 +378,6 @@ impl<'a> EcmaGeneralization {
                 target: self.trans_assignment_target(&it.left, ctx),
                 value: Expression::BinaryExpression(Box::new(bin)),
             })
-        } else {
-            Some(AssignmentExpression {
-                span: it.span.into(),
-                target: self.trans_assignment_target(&it.left, ctx),
-                value: self.trans_expression(&it.right, ctx),
-            })
         }
     }
 
@@ -399,10 +386,7 @@ impl<'a> EcmaGeneralization {
         it: &oxc::ast::ast::AwaitExpression,
         ctx: &mut TraverseCtx<'a>,
     ) -> AwaitExpression {
-        AwaitExpression {
-            span: it.span.into(),
-            argument: self.trans_expression(&it.argument, ctx),
-        }
+        AwaitExpression { span: it.span.into(), argument: self.trans_expression(&it.argument, ctx) }
     }
 
     pub fn trans_binary_expression(
@@ -447,11 +431,7 @@ impl<'a> EcmaGeneralization {
         CallExpression {
             span: it.span.into(),
             callee: self.trans_expression(&it.callee, ctx),
-            arguments: it
-                .arguments
-                .iter()
-                .map(|x| self.trans_argument(x, ctx))
-                .collect::<Vec<_>>(),
+            arguments: it.arguments.iter().map(|x| self.trans_argument(x, ctx)).collect::<Vec<_>>(),
             new: false,
             optional: it.optional,
         }
@@ -465,11 +445,7 @@ impl<'a> EcmaGeneralization {
         CallExpression {
             span: it.span.into(),
             callee: self.trans_expression(&it.callee, ctx),
-            arguments: it
-                .arguments
-                .iter()
-                .map(|x| self.trans_argument(x, ctx))
-                .collect::<Vec<_>>(),
+            arguments: it.arguments.iter().map(|x| self.trans_argument(x, ctx)).collect::<Vec<_>>(),
             new: true,
             optional: false,
         }
@@ -480,10 +456,7 @@ impl<'a> EcmaGeneralization {
         it: &oxc::ast::ast::SpreadElement,
         ctx: &mut TraverseCtx<'a>,
     ) -> SpreadElement {
-        SpreadElement {
-            span: it.span.into(),
-            argument: self.trans_expression(&it.argument, ctx),
-        }
+        SpreadElement { span: it.span.into(), argument: self.trans_expression(&it.argument, ctx) }
     }
 
     pub fn trans_chain_expression(
@@ -601,21 +574,13 @@ impl<'a> EcmaGeneralization {
         });
         let bin = BinaryExpression {
             span: it.span.into(),
-            left: if it.prefix {
-                left.clone()
-            } else {
-                right.clone()
-            },
+            left: if it.prefix { left.clone() } else { right.clone() },
             operator: if matches!(it.operator, oxc::ast::ast::UpdateOperator::Increment) {
                 BinaryOperator::Addition
             } else {
                 BinaryOperator::Subtraction
             },
-            right: if it.prefix {
-                right.clone()
-            } else {
-                left.clone()
-            },
+            right: if it.prefix { right.clone() } else { left.clone() },
         };
         AssignmentExpression {
             span: it.span.into(),
@@ -771,11 +736,7 @@ impl<'a> EcmaGeneralization {
     ) -> BlockStatement {
         BlockStatement {
             span: it.span.into(),
-            statements: it
-                .body
-                .iter()
-                .map(|x| self.trans_statement(x, ctx))
-                .collect::<Vec<_>>(),
+            statements: it.body.iter().map(|x| self.trans_statement(x, ctx)).collect::<Vec<_>>(),
         }
     }
 
@@ -785,33 +746,25 @@ impl<'a> EcmaGeneralization {
                 "We currently do not support labels since it's JavaScript / C-like feature, which is not applicable for universal code."
             )
         }
-        BreakStatement {
-            span: it.span.into(),
-        }
+        BreakStatement { span: it.span.into() }
     }
 
     pub fn trans_continue_statement(
         &mut self,
         it: &oxc::ast::ast::ContinueStatement,
     ) -> ContinueStatement {
-        ContinueStatement {
-            span: it.span.into(),
-        }
+        ContinueStatement { span: it.span.into() }
     }
 
     pub fn trans_debugger_statement(
         &mut self,
         it: &oxc::ast::ast::DebuggerStatement,
     ) -> DebuggerStatement {
-        DebuggerStatement {
-            span: it.span.into(),
-        }
+        DebuggerStatement { span: it.span.into() }
     }
 
     pub fn trans_empty_statement(&mut self, it: &oxc::ast::ast::EmptyStatement) -> EmptyStatement {
-        EmptyStatement {
-            span: it.span.into(),
-        }
+        EmptyStatement { span: it.span.into() }
     }
 
     pub fn trans_expression_statement(
@@ -849,14 +802,12 @@ impl<'a> EcmaGeneralization {
         let body = it.update.as_ref().map(|update| match &it.body {
             oxc::ast::ast::Statement::BlockStatement(block) => {
                 let mut block = self.trans_block_statement(block, ctx);
-                block
-                    .statements
-                    .push(Statement::ExpressionStatement(Box::new(
-                        ExpressionStatement {
-                            span: update.span().into(),
-                            expression: self.trans_expression(update, ctx),
-                        },
-                    )));
+                block.statements.push(Statement::ExpressionStatement(Box::new(
+                    ExpressionStatement {
+                        span: update.span().into(),
+                        expression: self.trans_expression(update, ctx),
+                    },
+                )));
                 block
             }
             _ => BlockStatement {
@@ -872,14 +823,9 @@ impl<'a> EcmaGeneralization {
         });
         let new_while = WhileStatement {
             span: it.span.into(),
-            test: it
-                .test
-                .as_ref()
-                .map(|x| self.trans_expression(x, ctx))
-                .unwrap_or(Expression::BooleanLiteral(BooleanLiteral {
-                    span: it.span.into(),
-                    value: true,
-                })),
+            test: it.test.as_ref().map(|x| self.trans_expression(x, ctx)).unwrap_or(
+                Expression::BooleanLiteral(BooleanLiteral { span: it.span.into(), value: true }),
+            ),
             body: body
                 .map(|x| Statement::BlockStatement(Box::new(x)))
                 .unwrap_or(self.trans_statement(&it.body, ctx)),
@@ -887,10 +833,7 @@ impl<'a> EcmaGeneralization {
         BlockStatement {
             span: it.span.into(),
             statements: if init.is_some() {
-                vec![
-                    init.unwrap(),
-                    Statement::WhileStatement(Box::new(new_while)),
-                ]
+                vec![init.unwrap(), Statement::WhileStatement(Box::new(new_while))]
             } else {
                 vec![Statement::WhileStatement(Box::new(new_while))]
             },
@@ -958,9 +901,7 @@ impl<'a> EcmaGeneralization {
             body: match body {
                 Statement::BlockStatement(block) => {
                     let mut block = block;
-                    block
-                        .statements
-                        .push(Statement::IfStatement(Box::new(new_if)));
+                    block.statements.push(Statement::IfStatement(Box::new(new_if)));
                     Statement::BlockStatement(block)
                 }
                 _ => {
@@ -1070,15 +1011,9 @@ impl<'a> EcmaGeneralization {
             elements: it
                 .elements
                 .iter()
-                .map(|x| {
-                    x.as_ref()
-                        .map(|y| self.trans_assignment_target_maybe_default(y, ctx))
-                })
+                .map(|x| x.as_ref().map(|y| self.trans_assignment_target_maybe_default(y, ctx)))
                 .collect::<Vec<_>>(),
-            rest: it
-                .rest
-                .as_ref()
-                .map(|x| self.trans_assignment_target_rest(x, ctx)),
+            rest: it.rest.as_ref().map(|x| self.trans_assignment_target_rest(x, ctx)),
             trailing_comma: it.trailing_comma.is_some(),
         }
     }
@@ -1095,10 +1030,7 @@ impl<'a> EcmaGeneralization {
                 .iter()
                 .map(|x| self.trans_assignment_target_property(x, ctx))
                 .collect::<Vec<_>>(),
-            rest: it
-                .rest
-                .as_ref()
-                .map(|x| self.trans_assignment_target_rest(x, ctx)),
+            rest: it.rest.as_ref().map(|x| self.trans_assignment_target_rest(x, ctx)),
         }
     }
 
@@ -1138,9 +1070,26 @@ impl<'a> EcmaGeneralization {
         it: &oxc::ast::ast::AssignmentTargetPropertyProperty,
         ctx: &mut TraverseCtx<'a>,
     ) -> AssignmentTargetPropertyProperty {
+        use oxc::ast::ast::PropertyKey;
         AssignmentTargetPropertyProperty {
             span: it.span.into(),
-            name: self.trans_expression(it.name.as_expression().unwrap(), ctx),
+            name: match &it.name {
+                expr @ match_expression!(PropertyKey) => {
+                    self.trans_expression(expr.as_expression().unwrap(), ctx)
+                }
+                PropertyKey::StaticIdentifier(idt) => Expression::Identifier(Identifier {
+                    span: idt.span.into(),
+                    name: idt.name.to_string(),
+                    symbol_id: None,
+                    private: false,
+                }),
+                PropertyKey::PrivateIdentifier(idt) => Expression::Identifier(Identifier {
+                    span: idt.span.into(),
+                    name: idt.name.to_string(),
+                    symbol_id: None,
+                    private: true,
+                }),
+            },
             binding: self.trans_assignment_target_maybe_default(&it.binding, ctx),
         }
     }
@@ -1270,6 +1219,7 @@ impl<'a> EcmaGeneralization {
             property: self.trans_expression(&it.expression, ctx),
             computed: true,
             private: false,
+            optional: it.optional,
         }
     }
 
@@ -1284,6 +1234,7 @@ impl<'a> EcmaGeneralization {
             property: Expression::Identifier(Self::trans_identifier_name(&it.property)),
             computed: false,
             private: false,
+            optional: it.optional,
         }
     }
 
@@ -1298,6 +1249,7 @@ impl<'a> EcmaGeneralization {
             property: Expression::Identifier(Self::trans_private_identifier(&it.field)),
             computed: false,
             private: true,
+            optional: it.optional,
         }
     }
 
@@ -1407,23 +1359,13 @@ impl<'a> EcmaGeneralization {
         FormalParameters {
             span: it.span.into(),
             kind: it.kind.into(),
-            items: it
-                .items
-                .iter()
-                .map(|x| self.trans_formal_parameter(x, ctx))
-                .collect::<Vec<_>>(),
-            rest: it
-                .rest
-                .as_ref()
-                .map(|x| self.trans_binding_rest_element(x, ctx)),
+            items: it.items.iter().map(|x| self.trans_formal_parameter(x, ctx)).collect::<Vec<_>>(),
+            rest: it.rest.as_ref().map(|x| self.trans_binding_rest_element(x, ctx)),
         }
     }
 
     pub fn trans_hashbang(it: &oxc::ast::ast::Hashbang) -> Hashbang {
-        Hashbang {
-            span: it.span.into(),
-            value: it.value.to_string(),
-        }
+        Hashbang { span: it.span.into(), value: it.value.to_string() }
     }
 
     pub fn trans_program(
@@ -1433,16 +1375,8 @@ impl<'a> EcmaGeneralization {
     ) -> Program {
         Program {
             span: it.span.into(),
-            body: it
-                .body
-                .iter()
-                .map(|x| self.trans_statement(x, ctx))
-                .collect::<Vec<_>>(),
-            directives: it
-                .directives
-                .iter()
-                .map(|x| Self::trans_directive(x))
-                .collect::<Vec<_>>(),
+            body: it.body.iter().map(|x| self.trans_statement(x, ctx)).collect::<Vec<_>>(),
+            directives: it.directives.iter().map(|x| Self::trans_directive(x)).collect::<Vec<_>>(),
             hashbang: it.hashbang.as_ref().map(|x| Self::trans_hashbang(x)),
         }
     }
@@ -1527,10 +1461,7 @@ impl<'a> EcmaGeneralization {
     ) -> ExportAllDeclaration {
         ExportAllDeclaration {
             span: it.span.into(),
-            exported: it
-                .exported
-                .as_ref()
-                .map(|x| self.trans_module_export_name(x, ctx)),
+            exported: it.exported.as_ref().map(|x| self.trans_module_export_name(x, ctx)),
             source: ImportExportSource::from_ecma(it.source.value.to_string()),
         }
     }
@@ -1544,9 +1475,9 @@ impl<'a> EcmaGeneralization {
         ExportDefaultDeclaration {
             span: it.span.into(),
             declaration: match &it.declaration {
-                expr @ match_expression!(ExportDefaultDeclarationKind) => Box::from(Left(
-                    self.trans_expression(expr.as_expression().unwrap(), ctx),
-                )),
+                expr @ match_expression!(ExportDefaultDeclarationKind) => {
+                    Box::from(Left(self.trans_expression(expr.as_expression().unwrap(), ctx)))
+                }
                 ExportDefaultDeclarationKind::FunctionDeclaration(it) => {
                     Box::from(Right(Statement::FunctionDeclaration(Box::new(
                         self.trans_function_declaration(it, ctx),
